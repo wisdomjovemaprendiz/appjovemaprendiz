@@ -8,6 +8,7 @@ import { createEstagiarioAction, updateEstagiarioAction } from "@/actions/rh/est
 import { FormField, SelectInput, TextAreaInput, TextInput } from "@/components/ui/FormControls";
 import { SkillPicker } from "@/components/ui/SkillPicker";
 import { EmbeddedDocumentoUploadForm } from "@/features/documentos/EmbeddedDocumentoUploadForm";
+import { EntityAccessCard } from "@/features/usuarios/EntityAccessCard";
 import { EstagiarioPhotoCard } from "@/features/estagiarios/EstagiarioPhotoCard";
 import { estagiarioSchema, type EstagiarioFormData } from "@/schemas/rh.schemas";
 import { isValidCpf, onlyDigits } from "@/lib/brasil/validators";
@@ -350,6 +351,13 @@ export function EstagiarioForm({ estagiarioId, initialData }: EstagiarioFormProp
       </form>
 
       <EstagiarioPhotoCard estagiarioId={savedEstagiarioId} />
+
+      <EntityAccessCard
+        entityType="estagiario"
+        entityId={savedEstagiarioId}
+        title="Acesso do estagiário"
+        description="Crie ou atualize o login do estagiário para acesso ao portal."
+      />
 
       <EmbeddedDocumentoUploadForm
         entityType="estagiario"

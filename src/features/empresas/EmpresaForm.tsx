@@ -8,6 +8,7 @@ import { createEmpresaAction, updateEmpresaAction } from "@/actions/rh/empresa.a
 import { FormField, TextAreaInput, TextInput } from "@/components/ui/FormControls";
 import { SkillPicker } from "@/components/ui/SkillPicker";
 import { EmbeddedDocumentoUploadForm } from "@/features/documentos/EmbeddedDocumentoUploadForm";
+import { EntityAccessCard } from "@/features/usuarios/EntityAccessCard";
 import { empresaSchema, type EmpresaFormData } from "@/schemas/rh.schemas";
 import { isValidCnpj, onlyDigits } from "@/lib/brasil/validators";
 
@@ -327,6 +328,13 @@ export function EmpresaForm({ empresaId, initialData }: EmpresaFormProps) {
           </button>
         </div>
       </form>
+
+      <EntityAccessCard
+        entityType="empresa"
+        entityId={savedEmpresaId}
+        title="Acesso da empresa"
+        description="Crie ou atualize o login da empresa para acesso ao portal."
+      />
 
       <EmbeddedDocumentoUploadForm
         entityType="empresa"
