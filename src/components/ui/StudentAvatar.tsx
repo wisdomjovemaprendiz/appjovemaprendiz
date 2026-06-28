@@ -1,4 +1,6 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
 
 function initials(name: string | null | undefined) {
   const parts = String(name || "")
@@ -23,27 +25,35 @@ export function StudentAvatar({
   photoUrl?: string | null;
   size?: "sm" | "md" | "lg";
 }) {
+  const [failed, setFailed] = useState(false);
+
   const sizeClass = {
     sm: "h-10 w-10 text-sm",
     md: "h-12 w-12 text-base",
     lg: "h-16 w-16 text-xl",
   }[size];
 
-  if (photoUrl) {
+  if (photoUrl && !failed) {
     return (
-      <div className={`${sizeClass} relative shrink-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100`}>
+      <div
+        className={`${sizeClass} relative shrink-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100`}
+      >
         <img
           src={photoUrl}
           alt={name ? `Foto de ${name}` : "Foto do estagiário"}
           className="h-full w-full object-cover"
           loading="lazy"
+          onError={() => setFailed(true)}
         />
       </div>
     );
   }
 
   return (
-    <div className={`${sizeClass} flex shrink-0 items-center justify-center rounded-2xl bg-blue-100 font-black text-blue-800`}>
+    <div
+      className={`${sizeClass} flex shrink-0 items-center justify-center rounded-2xl bg-blue-100 font-black text-blue-800`}
+      title={photoUrl ? "Foto não carregada" : "Sem foto cadastrada"}
+    >
       {initials(name)}
     </div>
   );

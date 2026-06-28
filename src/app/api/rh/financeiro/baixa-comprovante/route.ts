@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getCurrentProfile } from "@/lib/supabase/server-auth";
 import { getSupabaseAdminClient } from "@/lib/supabase/server";
 import {
   isAppsScriptDriveConfigured,
@@ -12,19 +13,8 @@ const allowedMimeTypes = new Set([
   "application/pdf",
   "image/jpeg",
   "image/png",
+  "image/webp",
 ]);
-
-const maxFileSize = 8 * 1024 * 1024;
-
-function parseMoney(value: FormDataEntryValue | null) {
-  const normalized = String(value ?? "")
-    .replace(/\./g, "")
-    .replace(",", ".")
-    .trim();
-
-  const parsed = Number(normalized);
-  return Number.isFinite(parsed) ? parsed : null;
-}
 
 function onlyDigits(value: string | null | undefined) {
   return String(value || "").replace(/\D/g, "");
@@ -42,290 +32,312 @@ function sanitizeName(value: string | null | undefined, fallback = "arquivo") {
     .substring(0, 120) || fallback;
 }
 
-function getExtension(fileName: string, mimeType: string) {
-  const byName = fileName.split(".").pop();
+function numberFromCurrency(value: FormDataEntryValue | null) {
+  const text = String(value ?? "").trim();
 
-  if (byName && byName.length <= 5 && byName !== fileName) {
-    return byName.toLowerCase();
-  }
+  if (!text) return 0;
 
-  if (mimeType === "application/pdf") return "pdf";
-  if (mimeType === "image/jpeg") return "jpg";
-  if (mimeType === "image/png") return "png";
+  const normalized = text
+    .replace(/\./g, "")
+    .replace(",", ".")
+    .replace(/[^\d.-]/g, "");
 
-  return "bin";
+  const number = Number(normalized);
+
+  return Number.isFinite(number) ? number : 0;
+}
+
+async function findChargeByCode(supabase: ReturnType<typeof getSupabaseAdminClient>, code: string) {
+  if (!supabase) return null;
+
+  const clean = code.trim();
+
+  if (!clean) return null;
+
+  const byShort = await supabase
+    .from("financial_charges")
+    .select("*")
+    .eq("codigo_curto", clean.toUpperCase())
+    .maybeSingle();
+
+  if (byShort.data) return byShort.data;
+
+  const byOldCode = await supabase
+    .from("financial_charges")
+    .select("*")
+    .eq("numero_controle", clean)
+    .maybeSingle();
+
+  if (byOldCode.data) return byOldCode.data;
+
+  return null;
 }
 
 export async function POST(request: Request) {
-  try {
-    const supabase = getSupabaseAdminClient();
+  const { user, profile } = await getCurrentProfile();
 
-    if (!supabase) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message: "Supabase ainda não configurado.",
-        },
-        { status: 500 }
-      );
-    }
-
-    const formData = await request.formData();
-
-    const numeroControle = String(formData.get("numero_controle") ?? "").trim();
-    const valorPago = parseMoney(formData.get("valor_pago"));
-    const dataPagamento =
-      String(formData.get("data_pagamento") ?? "").trim() ||
-      new Date().toISOString().slice(0, 10);
-    const formaPagamento = String(formData.get("forma_pagamento") ?? "").trim();
-    const observacoes = String(formData.get("observacoes") ?? "").trim();
-    const file = formData.get("comprovante");
-
-    if (!numeroControle) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message: "Informe o número de controle.",
-        },
-        { status: 400 }
-      );
-    }
-
-    if (!valorPago || valorPago <= 0) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message: "Informe o valor pago.",
-        },
-        { status: 400 }
-      );
-    }
-
-    const { data: charge, error: chargeError } = await supabase
-      .from("financial_charges")
-      .select("*")
-      .eq("numero_controle", numeroControle)
-      .maybeSingle();
-
-    if (chargeError || !charge) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message: "Parcela não localizada pelo número de controle.",
-        },
-        { status: 404 }
-      );
-    }
-
-    if (charge.status === "pago") {
-      return NextResponse.json(
-        {
-          ok: false,
-          message: "Esta parcela já está marcada como paga.",
-        },
-        { status: 400 }
-      );
-    }
-
-    if (charge.status === "cancelado") {
-      return NextResponse.json(
-        {
-          ok: false,
-          message: "Esta parcela está cancelada.",
-        },
-        { status: 400 }
-      );
-    }
-
-    let comprovanteDocumentId: string | null = null;
-
-    if (file instanceof File && file.size > 0) {
-      if (!isAppsScriptDriveConfigured()) {
-        return NextResponse.json(
-          {
-            ok: false,
-            message: "Serviço de documentos ainda não configurado.",
-          },
-          { status: 500 }
-        );
-      }
-
-      if (!allowedMimeTypes.has(file.type)) {
-        return NextResponse.json(
-          {
-            ok: false,
-            message: "Comprovante inválido. Envie PDF, JPEG ou PNG.",
-          },
-          { status: 400 }
-        );
-      }
-
-      if (file.size > maxFileSize) {
-        return NextResponse.json(
-          {
-            ok: false,
-            message: "Comprovante acima do limite de 8 MB.",
-          },
-          { status: 400 }
-        );
-      }
-
-      const { data: company } = await supabase
-        .from("companies")
-        .select("id, razao_social, nome_fantasia, cnpj")
-        .eq("id", charge.company_id)
-        .maybeSingle();
-
-      const companyName =
-        company?.nome_fantasia ||
-        company?.razao_social ||
-        `Empresa ${String(charge.company_id).slice(0, 8)}`;
-
-      const cnpj = onlyDigits(company?.cnpj);
-      const companyCode = cnpj ? `CNPJ-${cnpj}` : `EMPRESA-${String(charge.company_id).slice(0, 8)}`;
-      const entityFolderName = `${companyCode} - ${sanitizeName(companyName, "EMPRESA")}`;
-
-      const extension = getExtension(file.name, file.type);
-      const finalFileName = [
-        new Date().toISOString().slice(0, 10),
-        numeroControle,
-        "COMPROVANTE-PAGAMENTO",
-        sanitizeName(file.name, "comprovante"),
-      ].join("__") + `.${extension}`;
-
-      const buffer = Buffer.from(await file.arrayBuffer());
-
-      const uploaded = await uploadDocumentToAppsScriptDrive({
-        buffer,
-        fileName: finalFileName,
-        mimeType: file.type,
-        entityType: "empresa",
-        entityId: charge.company_id,
-        category: "comprovante_pagamento",
-        entityTypeFolderName: "EMPRESAS",
-        entityFolderName,
-        categoryFolderName: "07_COMPROVANTES_PAGAMENTO",
-      });
-
-      const documentPayload = {
-        entity_type: "empresa",
-        entity_id: charge.company_id,
-        category: "comprovante_pagamento",
-        file_name: uploaded.file?.name || finalFileName,
-        original_name: file.name,
-        mime_type: file.type,
-        file_size: file.size,
-        storage_provider: "google_drive_apps_script",
-        drive_file_id: uploaded.file?.id || null,
-        drive_folder_id: uploaded.file?.folderId || null,
-        drive_web_view_link: uploaded.file?.url || null,
-        drive_web_content_link: uploaded.file?.url || null,
-        status: "ativo",
-        version: 1,
-        metadata: {
-          origem: "baixa_financeira",
-          numero_controle: numeroControle,
-          financial_charge_id: charge.id,
-          uploaded_at: new Date().toISOString(),
-        },
-      };
-
-      const { data: document, error: documentError } = await supabase
-        .from("documents")
-        .insert(documentPayload)
-        .select("id")
-        .single();
-
-      if (documentError || !document) {
-        return NextResponse.json(
-          {
-            ok: false,
-            message: `Comprovante enviado, mas houve erro ao registrar documento: ${documentError?.message || "registro não retornado"}`,
-          },
-          { status: 500 }
-        );
-      }
-
-      comprovanteDocumentId = document.id;
-    }
-
-    const paymentPayload = {
-      charge_id: charge.id,
-      company_id: charge.company_id,
-      valor_pago: valorPago,
-      data_pagamento: dataPagamento,
-      forma_pagamento: formaPagamento,
-      observacoes,
-      comprovante_document_id: comprovanteDocumentId,
-    };
-
-    const { error: paymentError } = await supabase
-      .from("payments")
-      .insert(paymentPayload);
-
-    if (paymentError) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message: `Erro ao registrar pagamento: ${paymentError.message}`,
-        },
-        { status: 500 }
-      );
-    }
-
-    const chargePayload = {
-      status: "pago",
-      valor_pago: valorPago,
-      data_pagamento: dataPagamento,
-      forma_pagamento: formaPagamento,
-      observacoes,
-      comprovante_document_id: comprovanteDocumentId,
-    };
-
-    const { error: updateError } = await supabase
-      .from("financial_charges")
-      .update(chargePayload)
-      .eq("id", charge.id);
-
-    if (updateError) {
-      return NextResponse.json(
-        {
-          ok: false,
-          message: `Pagamento registrado, mas houve erro ao atualizar parcela: ${updateError.message}`,
-        },
-        { status: 500 }
-      );
-    }
-
-    await supabase.from("audit_logs").insert({
-      acao: "baixou_parcela_carne",
-      tabela: "financial_charges",
-      entity_type: "financeiro",
-      entity_id: charge.id,
-      valor_anterior: charge,
-      valor_novo: {
-        pagamento: paymentPayload,
-        parcela: chargePayload,
-      },
-      motivo: observacoes || "Baixa de parcela por número de controle.",
-    });
-
-    return NextResponse.json({
-      ok: true,
-      message: comprovanteDocumentId
-        ? "Pagamento baixado e comprovante anexado com sucesso."
-        : "Pagamento baixado com sucesso.",
-    });
-  } catch (error) {
+  if (!user || !profile || profile.status !== "ativo" || !["rh_master", "rh_operador"].includes(profile.role)) {
     return NextResponse.json(
       {
         ok: false,
-        message:
-          error instanceof Error
-            ? error.message
-            : "Erro inesperado ao registrar baixa.",
+        message: "Acesso não autorizado.",
+      },
+      { status: 403 }
+    );
+  }
+
+  const supabase = getSupabaseAdminClient();
+
+  if (!supabase) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "Supabase ainda não configurado.",
       },
       { status: 500 }
     );
   }
+
+  const formData = await request.formData();
+
+  const numeroControle = String(formData.get("numero_controle") ?? "").trim();
+  const valorPago = numberFromCurrency(formData.get("valor_pago"));
+  const dataPagamento = String(formData.get("data_pagamento") ?? "").trim();
+  const formaPagamento = String(formData.get("forma_pagamento") ?? "").trim() || "pix";
+  const observacoes = String(formData.get("observacoes") ?? "").trim();
+  const comprovante = formData.get("comprovante");
+
+  if (!numeroControle) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "Informe o código da parcela. Use o código curto impresso no carnê, exemplo: C01001.",
+      },
+      { status: 400 }
+    );
+  }
+
+  if (!valorPago || valorPago <= 0) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "Informe o valor pago.",
+      },
+      { status: 400 }
+    );
+  }
+
+  if (!dataPagamento) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "Informe a data do pagamento.",
+      },
+      { status: 400 }
+    );
+  }
+
+  const charge = await findChargeByCode(supabase, numeroControle);
+
+  if (!charge) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "Parcela não encontrada. Confira o código impresso no carnê.",
+      },
+      { status: 404 }
+    );
+  }
+
+  if (["pago", "cancelado"].includes(String(charge.status))) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "Esta parcela já está paga ou cancelada.",
+      },
+      { status: 400 }
+    );
+  }
+
+  let comprovanteDocumentId: string | null = null;
+
+  if (comprovante instanceof File && comprovante.size > 0) {
+    if (!allowedMimeTypes.has(comprovante.type)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "Comprovante deve ser PDF, JPG, PNG ou WEBP.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (comprovante.size > 8 * 1024 * 1024) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "Comprovante deve ter no máximo 8 MB.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!isAppsScriptDriveConfigured()) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: "Google Drive via Apps Script ainda não configurado.",
+        },
+        { status: 500 }
+      );
+    }
+
+    const { data: company } = await supabase
+      .from("companies")
+      .select("*")
+      .eq("id", charge.company_id)
+      .maybeSingle();
+
+    const companyName =
+      company?.nome_fantasia ||
+      company?.razao_social ||
+      "EMPRESA";
+
+    const cnpj = onlyDigits(company?.cnpj);
+    const companyCode = cnpj ? `CNPJ-${cnpj}` : `EMPRESA-${String(charge.company_id).slice(0, 8)}`;
+
+    const extension =
+      comprovante.type === "application/pdf"
+        ? "pdf"
+        : comprovante.type === "image/png"
+          ? "png"
+          : comprovante.type === "image/webp"
+            ? "webp"
+            : "jpg";
+
+    const fileName = `${new Date().toISOString().slice(0, 10)}__${companyCode}__COMPROVANTE__${charge.codigo_curto || charge.numero_controle}.${extension}`;
+
+    const uploaded = await uploadDocumentToAppsScriptDrive({
+      buffer: Buffer.from(await comprovante.arrayBuffer()),
+      fileName,
+      mimeType: comprovante.type,
+      entityType: "empresa",
+      entityId: charge.company_id,
+      category: "comprovante_pagamento",
+      entityTypeFolderName: "EMPRESAS",
+      entityFolderName: `${companyCode} - ${sanitizeName(companyName, "EMPRESA")}`,
+      categoryFolderName: "07_COMPROVANTES_PAGAMENTO",
+    });
+
+    const documentPayload = {
+      entity_type: "empresa",
+      entity_id: charge.company_id,
+      category: "comprovante_pagamento",
+      file_name: uploaded.file?.name || fileName,
+      original_name: comprovante.name || fileName,
+      mime_type: comprovante.type,
+      file_size: comprovante.size,
+      storage_provider: "google_drive_apps_script",
+      drive_file_id: uploaded.file?.id || null,
+      drive_folder_id: uploaded.file?.folderId || null,
+      drive_web_view_link: uploaded.file?.url || null,
+      status: "ativo",
+      version: 1,
+      metadata: {
+        origem: "baixa_financeira",
+        charge_id: charge.id,
+        codigo_curto: charge.codigo_curto || null,
+        numero_controle: charge.numero_controle || null,
+      },
+    };
+
+    const { data: document, error: documentError } = await supabase
+      .from("documents")
+      .insert(documentPayload)
+      .select("id")
+      .single();
+
+    if (documentError || !document) {
+      return NextResponse.json(
+        {
+          ok: false,
+          message: `Comprovante enviado, mas houve erro ao registrar documento: ${documentError?.message || "registro não retornado"}`,
+        },
+        { status: 500 }
+      );
+    }
+
+    comprovanteDocumentId = document.id;
+  }
+
+  const paymentPayload = {
+    charge_id: charge.id,
+    company_id: charge.company_id,
+    valor_pago: valorPago,
+    data_pagamento: dataPagamento,
+    forma_pagamento: formaPagamento,
+    observacoes,
+    comprovante_document_id: comprovanteDocumentId,
+  };
+
+  const { error: paymentError } = await supabase
+    .from("payments")
+    .insert(paymentPayload);
+
+  if (paymentError) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: `Erro ao registrar pagamento: ${paymentError.message}`,
+      },
+      { status: 500 }
+    );
+  }
+
+  const chargePayload = {
+    status: "pago",
+    valor_pago: valorPago,
+    data_pagamento: dataPagamento,
+    forma_pagamento: formaPagamento,
+    observacoes,
+    comprovante_document_id: comprovanteDocumentId,
+  };
+
+  const { error: updateError } = await supabase
+    .from("financial_charges")
+    .update(chargePayload)
+    .eq("id", charge.id);
+
+  if (updateError) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: `Pagamento registrado, mas houve erro ao atualizar parcela: ${updateError.message}`,
+      },
+      { status: 500 }
+    );
+  }
+
+  await supabase.from("audit_logs").insert({
+    acao: "baixou_pagamento_financeiro",
+    tabela: "financial_charges",
+    entity_type: "financeiro",
+    entity_id: charge.id,
+    valor_anterior: charge,
+    valor_novo: {
+      pagamento: paymentPayload,
+      parcela: chargePayload,
+    },
+    motivo: `Baixa feita pelo código ${numeroControle}.`,
+  });
+
+  return NextResponse.json({
+    ok: true,
+    message: "Pagamento baixado com sucesso.",
+    data: {
+      charge_id: charge.id,
+      codigo_curto: charge.codigo_curto,
+      numero_controle: charge.numero_controle,
+    },
+  });
 }

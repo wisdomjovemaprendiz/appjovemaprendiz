@@ -1,7 +1,12 @@
-﻿import { EmptyState, PageHeader } from "@/components/layout/RhShell";
-import { BarChart3 } from "lucide-react";
+import { PageHeader } from "@/components/layout/RhShell";
+import { getRelatoriosData } from "@/data/rh/relatorios.data";
+import { RelatoriosWorkspace } from "@/features/relatorios/RelatoriosWorkspace";
 
-export default function RelatoriosPage() {
+export const dynamic = "force-dynamic";
+
+export default async function RelatoriosPage() {
+  const { data, errorMessage } = await getRelatoriosData();
+
   return (
     <>
       <PageHeader
@@ -10,13 +15,15 @@ export default function RelatoriosPage() {
         description="Relatórios de empresas, estagiários, contratos, vencimentos, inadimplência e documentos pendentes."
       />
 
-      <section className="mx-auto max-w-7xl px-6 py-8">
-        <EmptyState
-          icon={<BarChart3 className="h-7 w-7" />}
-          title="Relatórios preparados"
-          description="Esta área será integrada ao gerador de PDF e aos filtros do sistema para emissão de documentos e análises do RH."
-        />
-      </section>
+      {errorMessage ? (
+        <section className="mx-auto max-w-7xl px-6 pt-6">
+          <div className="rounded-2xl border border-yellow-100 bg-yellow-50 p-4 text-sm font-black text-yellow-800">
+            {errorMessage}
+          </div>
+        </section>
+      ) : null}
+
+      <RelatoriosWorkspace data={data} />
     </>
   );
 }

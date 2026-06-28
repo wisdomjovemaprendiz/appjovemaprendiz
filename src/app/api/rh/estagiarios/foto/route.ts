@@ -8,7 +8,7 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const allowedMimeTypes = new Set(["image/jpeg", "image/png"]);
+const allowedMimeTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const maxFileSize = 2 * 1024 * 1024;
 
 function onlyDigits(value: string | null | undefined) {
@@ -27,9 +27,9 @@ function sanitizeName(value: string | null | undefined, fallback = "arquivo") {
     .substring(0, 120) || fallback;
 }
 
-function driveImageUrl(fileId: string | null | undefined) {
+function protectedImageUrl(fileId: string | null | undefined) {
   if (!fileId) return null;
-  return `https://drive.google.com/uc?export=view&id=${fileId}`;
+  return `/api/rh/files/image?file_id=${encodeURIComponent(fileId)}`;
 }
 
 export async function GET(request: Request) {
@@ -133,7 +133,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           ok: false,
-          message: "A foto deve estar em JPEG ou PNG.",
+          message: "A foto deve estar em JPEG, PNG ou WEBP.",
         },
         { status: 400 }
       );
@@ -183,10 +183,8 @@ export async function POST(request: Request) {
       categoryFolderName: "00_FOTO",
     });
 
-    const imageUrl =
-      driveImageUrl(uploaded.file?.id || null) ||
-      uploaded.file?.url ||
-      null;
+    const fileId = uploaded.file?.id || null;
+    const imageUrl = protectedImageUrl(fileId);
 
     const documentPayload = {
       entity_type: "estagiario",
@@ -197,15 +195,15 @@ export async function POST(request: Request) {
       mime_type: "image/jpeg",
       file_size: file.size,
       storage_provider: "google_drive_apps_script",
-      drive_file_id: uploaded.file?.id || null,
+      drive_file_id: fileId,
       drive_folder_id: uploaded.file?.folderId || null,
-      drive_web_view_link: imageUrl || uploaded.file?.url || null,
-      drive_web_content_link: imageUrl || uploaded.file?.url || null,
+      drive_web_view_link: uploaded.file?.url || null,
+      drive_web_content_link: imageUrl,
       status: "ativo",
       version: 1,
       metadata: {
         origem: "foto_estagiario",
-        compressed: true,
+        protected_image_route: true,
         uploaded_at: new Date().toISOString(),
       },
     };

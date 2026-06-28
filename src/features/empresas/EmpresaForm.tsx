@@ -1,346 +1,458 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Building2, MapPin, Save, Search } from "lucide-react";
-import { useState, useTransition } from "react";
-import { useForm } from "react-hook-form";
-import { createEmpresaAction, updateEmpresaAction } from "@/actions/rh/empresa.actions";
-import { FormField, TextAreaInput, TextInput } from "@/components/ui/FormControls";
-import { SkillPicker } from "@/components/ui/SkillPicker";
 import { EmbeddedDocumentoUploadForm } from "@/features/documentos/EmbeddedDocumentoUploadForm";
-import { EntityAccessCard } from "@/features/usuarios/EntityAccessCard";
-import { empresaSchema, type EmpresaFormData } from "@/schemas/rh.schemas";
-import { isValidCnpj, onlyDigits } from "@/lib/brasil/validators";
+import { EmpresaVagasManager } from "@/features/empresas/EmpresaVagasManager";
+import { Building2, CheckCircle2, Loader2, Save, Search } from "lucide-react";
+import { FormEvent, useRef, useState } from "react";
 
-type EmpresaFormProps = {
-  empresaId?: string;
-  initialData?: Partial<EmpresaFormData>;
-};
+type AnyEmpresa = Record<string, any>;
 
-type FormResult = {
-  ok: boolean;
-  message: string;
-  id?: string;
-};
+function getEmpresaValue(empresa: AnyEmpresa, keys: string[], fallback = "") {
+  for (const key of keys) {
+    const value = empresa?.[key];
 
-export function EmpresaForm({ empresaId, initialData }: EmpresaFormProps) {
-  const [isPending, startTransition] = useTransition();
-  const [resultado, setResultado] = useState<FormResult | null>(null);
-  const [savedEmpresaId, setSavedEmpresaId] = useState<string | null>(empresaId ?? null);
-  const [cnpjStatus, setCnpjStatus] = useState<string | null>(null);
-  const [cepStatus, setCepStatus] = useState<string | null>(null);
+    if (value !== null && value !== undefined && String(value).trim() !== "") {
+      return String(value);
+    }
+  }
 
-  const isEditing = Boolean(empresaId);
+  return fallback;
+}
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    setValue,
-    watch,
-    formState: { errors },
-  } = useForm<EmpresaFormData>({
-    resolver: zodResolver(empresaSchema),
-    defaultValues: {
-      nome_responsavel: initialData?.nome_responsavel ?? "",
-      cnpj: initialData?.cnpj ?? "",
-      razao_social: initialData?.razao_social ?? "",
-      nome_fantasia: initialData?.nome_fantasia ?? "",
-      ramo_atuacao: initialData?.ramo_atuacao ?? "",
-      endereco: initialData?.endereco ?? "",
-      bairro: initialData?.bairro ?? "",
-      cidade: initialData?.cidade ?? "Salvador",
-      estado: initialData?.estado ?? "Bahia",
-      cep: initialData?.cep ?? "",
-      email: initialData?.email ?? "",
-      telefone: initialData?.telefone ?? "",
-      perfil_candidato: initialData?.perfil_candidato ?? "",
-      funcoes_estagiario: initialData?.funcoes_estagiario ?? "",
-      valor_bolsa: initialData?.valor_bolsa,
-      observacoes: initialData?.observacoes ?? "",
-      skills_desejadas: initialData?.skills_desejadas ?? [],
-      funcoes_sugeridas: initialData?.funcoes_sugeridas ?? [],
-    },
-  });
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="grid gap-2">
+      <span className="text-sm font-black text-blue-950">{label}</span>
+      {children}
+    </label>
+  );
+}
 
-  const skillsDesejadas = watch("skills_desejadas") ?? [];
-  const funcoesSugeridas = watch("funcoes_sugeridas") ?? [];
-  const cnpj = watch("cnpj") ?? "";
-  const cep = watch("cep") ?? "";
+export function EmpresaForm({
+  empresa,
+  empresaId,
+  defaultValues,
+}: {
+  empresa?: AnyEmpresa | null;
+  empresaId?: string | null;
+  defaultValues?: AnyEmpresa | null;
+}) {
+  const initial = empresa ?? defaultValues ?? {};
+  const initialId = empresaId ?? initial?.id ?? null;
+
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const [savedEmpresaId, setSavedEmpresaId] = useState<string | null>(initialId);
+  const [saving, setSaving] = useState(false);
+  const [searchingCnpj, setSearchingCnpj] = useState(false);
+  const [searchingCep, setSearchingCep] = useState(false);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+
+  function setField(name: string, value: string | null | undefined) {
+    const field = formRef.current?.elements.namedItem(name);
+
+    if (field && "value" in field) {
+      (field as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement).value = value || "";
+    }
+  }
+
+  function getField(name: string) {
+    const field = formRef.current?.elements.namedItem(name);
+
+    if (field && "value" in field) {
+      return String((field as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement).value || "");
+    }
+
+    return "";
+  }
 
   async function buscarCnpj() {
-    setCnpjStatus(null);
+    const cnpj = getField("cnpj");
 
-    if (!cnpj || !isValidCnpj(cnpj)) {
-      setCnpjStatus("CNPJ inválido. Confira os números digitados.");
+    if (!cnpj.trim()) {
+      setMessage({
+        ok: false,
+        text: "Informe o CNPJ para pesquisar.",
+      });
       return;
     }
 
-    const response = await fetch(`/api/cnpj?cnpj=${onlyDigits(cnpj)}`);
-    const data = await response.json();
+    setSearchingCnpj(true);
+    setMessage(null);
 
-    if (!data.ok) {
-      setCnpjStatus(data.message || "Não foi possível consultar o CNPJ.");
-      return;
+    try {
+      const response = await fetch(`/api/cnpj?cnpj=${encodeURIComponent(cnpj)}`);
+      const result = await response.json();
+
+      if (!result.ok) {
+        setMessage({
+          ok: false,
+          text: result.message || "CNPJ não encontrado.",
+        });
+        return;
+      }
+
+      const empresaApi = result.empresa || result.data || result;
+
+      setField("razao_social", empresaApi.razao_social);
+      setField("nome_fantasia", empresaApi.nome_fantasia);
+      setField("ramo_atuacao", empresaApi.ramo_atuacao || empresaApi.atividade_principal);
+      setField("email", empresaApi.email);
+      setField("telefone", empresaApi.telefone);
+      setField("cep", empresaApi.cep);
+      setField("endereco", empresaApi.logradouro || empresaApi.endereco);
+      setField("numero", empresaApi.numero);
+      setField("complemento", empresaApi.complemento);
+      setField("bairro", empresaApi.bairro);
+      setField("cidade", empresaApi.cidade || empresaApi.municipio);
+      setField("estado", empresaApi.uf || empresaApi.estado);
+
+      setMessage({
+        ok: true,
+        text: "Dados do CNPJ carregados. Confira antes de salvar.",
+      });
+    } finally {
+      setSearchingCnpj(false);
     }
-
-    const empresa = data.empresa;
-
-    setValue("razao_social", empresa.razao_social ?? "");
-    setValue("nome_fantasia", empresa.nome_fantasia ?? "");
-    setValue("ramo_atuacao", empresa.ramo_atuacao ?? "");
-    setValue("email", empresa.email ?? "");
-    setValue("telefone", empresa.telefone ?? "");
-    setValue("endereco", empresa.endereco ?? "");
-    setValue("bairro", empresa.bairro ?? "");
-    setValue("cidade", empresa.cidade ?? "Salvador");
-    setValue("estado", empresa.estado ?? "Bahia");
-    setValue("cep", empresa.cep ?? "");
-
-    setCnpjStatus("Dados encontrados e preenchidos automaticamente.");
   }
 
   async function buscarCep() {
-    setCepStatus(null);
+    const cep = getField("cep");
 
-    const digits = onlyDigits(cep);
-
-    if (digits.length !== 8) {
-      setCepStatus("Informe um CEP com 8 dígitos.");
+    if (!cep.trim()) {
+      setMessage({
+        ok: false,
+        text: "Informe o CEP para pesquisar.",
+      });
       return;
     }
 
-    const response = await fetch(`/api/cep?cep=${digits}`);
-    const data = await response.json();
+    setSearchingCep(true);
+    setMessage(null);
 
-    if (!data.ok) {
-      setCepStatus(data.message || "Não foi possível consultar o CEP.");
-      return;
+    try {
+      const response = await fetch(`/api/cep?cep=${encodeURIComponent(cep)}`);
+      const result = await response.json();
+
+      if (!result.ok) {
+        setMessage({
+          ok: false,
+          text: result.message || "CEP não encontrado.",
+        });
+        return;
+      }
+
+      const endereco = result.endereco || result.data || result;
+
+      setField("endereco", endereco.logradouro);
+      setField("bairro", endereco.bairro);
+      setField("cidade", endereco.cidade || endereco.localidade);
+      setField("estado", endereco.uf || endereco.estado);
+
+      setMessage({
+        ok: true,
+        text: "Endereço carregado pelo CEP. Confira antes de salvar.",
+      });
+    } finally {
+      setSearchingCep(false);
     }
-
-    setValue("endereco", data.endereco.logradouro ?? "");
-    setValue("bairro", data.endereco.bairro ?? "");
-    setValue("cidade", data.endereco.cidade ?? "Salvador");
-    setValue("estado", data.endereco.estado ?? "Bahia");
-    setValue("cep", data.endereco.cep ?? cep);
-
-    setCepStatus("Endereço preenchido pelo CEP.");
   }
 
-  function onSubmit(data: EmpresaFormData) {
-    setResultado(null);
+  async function submitEmpresa(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
 
-    startTransition(async () => {
-      const result =
-        isEditing && empresaId
-          ? await updateEmpresaAction(empresaId, data)
-          : await createEmpresaAction(data);
+    setSaving(true);
+    setMessage(null);
 
-      setResultado(result);
+    try {
+      const formData = new FormData(event.currentTarget);
 
-      if (result.ok && result.id) {
-        setSavedEmpresaId(result.id);
+      if (savedEmpresaId) {
+        formData.set("company_id", savedEmpresaId);
       }
 
-      if (result.ok && !isEditing) {
-        reset({
-          cidade: "Salvador",
-          estado: "Bahia",
-          skills_desejadas: [],
-          funcoes_sugeridas: [],
-        });
-        setCnpjStatus(null);
-        setCepStatus(null);
+      const response = await fetch("/api/rh/empresas/salvar", {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      setMessage({
+        ok: Boolean(result.ok),
+        text: result.message || "Resposta recebida.",
+      });
+
+      if (result.ok) {
+        setSavedEmpresaId(result.data.id);
+
+        setTimeout(() => {
+          const modal = document.querySelector("[role='dialog']");
+          if (modal) {
+            modal.scrollTo({ top: 0, behavior: "smooth" });
+          } else {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }
+        }, 80);
       }
-    });
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
-    <div className="space-y-6">
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {resultado ? (
-          <div
-            className={`rounded-2xl border p-4 text-sm font-black ${
-              resultado.ok
-                ? "border-green-100 bg-green-50 text-green-700"
-                : "border-red-100 bg-red-50 text-red-700"
-            }`}
-          >
-            {resultado.message}
-          </div>
-        ) : null}
+    <div className="grid min-w-0 max-w-full gap-6 overflow-x-hidden">
+      {message ? (
+        <div
+          className={`rounded-2xl border p-4 text-sm font-black ${
+            message.ok
+              ? "border-green-100 bg-green-50 text-green-700"
+              : "border-red-100 bg-red-50 text-red-700"
+          }`}
+        >
+          {message.text}
+        </div>
+      ) : null}
 
-        <section className="rounded-3xl bg-white p-7 shadow-sm">
-          <div className="mb-6 flex items-center gap-3">
-            <div className="rounded-2xl bg-blue-50 p-3">
-              <Building2 className="h-7 w-7 text-blue-700" />
-            </div>
+      {savedEmpresaId ? (
+        <div className="rounded-3xl border border-green-100 bg-green-50 p-5">
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="mt-1 h-6 w-6 text-green-700" />
             <div>
-              <h2 className="text-2xl font-black text-blue-950">Dados principais</h2>
-              <p className="text-sm font-semibold text-slate-500">
-                Identificação da empresa e responsável pelo estágio.
+              <h3 className="text-lg font-black text-green-800">
+                Empresa salva no sistema
+              </h3>
+              <p className="mt-1 text-sm font-semibold leading-6 text-green-700">
+                Você pode fechar esta janela ou continuar organizando as vagas,
+                skills e documentos da empresa abaixo.
               </p>
             </div>
           </div>
+        </div>
+      ) : null}
 
-          <div className="grid gap-5 md:grid-cols-2">
-            <FormField label="CNPJ" error={errors.cnpj?.message}>
-              <div className="flex gap-2">
-                <TextInput {...register("cnpj")} placeholder="00.000.000/0000-00" />
-                <button
-                  type="button"
-                  onClick={buscarCnpj}
-                  className="btn-wisdom-blue inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-sm font-black"
-                >
-                  <Search className="h-4 w-4" />
-                  Buscar
-                </button>
-              </div>
-              {cnpjStatus ? (
-                <p className="mt-2 text-sm font-bold text-blue-700">{cnpjStatus}</p>
-              ) : null}
-            </FormField>
-
-            <FormField label="Nome do responsável" error={errors.nome_responsavel?.message}>
-              <TextInput {...register("nome_responsavel")} placeholder="Ex: Rodrigo Pereira" />
-            </FormField>
-
-            <FormField label="Razão social" error={errors.razao_social?.message}>
-              <TextInput {...register("razao_social")} placeholder="Razão social da empresa" />
-            </FormField>
-
-            <FormField label="Nome fantasia">
-              <TextInput {...register("nome_fantasia")} placeholder="Nome comercial" />
-            </FormField>
-
-            <FormField label="Ramo de atuação">
-              <TextInput {...register("ramo_atuacao")} placeholder="Ex: Roupas, mercado, escritório..." />
-            </FormField>
-
-            <FormField label="Valor padrão da bolsa">
-              <TextInput {...register("valor_bolsa")} type="number" step="0.01" placeholder="Ex: 650.00" />
-            </FormField>
+      <form ref={formRef} onSubmit={submitEmpresa} className="min-w-0 max-w-full overflow-x-hidden rounded-3xl bg-white p-4 shadow-sm sm:p-6">
+        <div className="mb-6 flex items-center gap-3">
+          <Building2 className="h-8 w-8 text-blue-700" />
+          <div>
+            <h2 className="text-2xl font-black text-blue-950">
+              Dados da empresa
+            </h2>
+            <p className="mt-1 text-sm font-semibold text-slate-500">
+              Salve a empresa primeiro. Depois cadastre as vagas e anexe documentos.
+            </p>
           </div>
-        </section>
+        </div>
 
-        <section className="rounded-3xl bg-white p-7 shadow-sm">
-          <h2 className="mb-6 text-2xl font-black text-blue-950">Contato e endereço</h2>
+        <input type="hidden" name="company_id" value={savedEmpresaId || ""} />
 
-          <div className="grid gap-5 md:grid-cols-2">
-            <FormField label="E-mail" error={errors.email?.message}>
-              <TextInput {...register("email")} type="email" placeholder="empresa@email.com" />
-            </FormField>
+        <div className="grid min-w-0 max-w-full gap-5">
+          <div className="grid min-w-0 max-w-full gap-5 md:grid-cols-[minmax(0,1fr)_auto]">
+            <Field label="CNPJ">
+              <input
+                name="cnpj"
+                defaultValue={getEmpresaValue(initial, ["cnpj"])}
+                className="h-12 rounded-xl border border-slate-200 px-4 text-sm font-bold outline-none focus:border-blue-500"
+              />
+            </Field>
 
-            <FormField label="Telefone" error={errors.telefone?.message}>
-              <TextInput {...register("telefone")} placeholder="(71) 99999-9999" />
-            </FormField>
-
-            <FormField label="CEP">
-              <div className="flex gap-2">
-                <TextInput {...register("cep")} placeholder="00000-000" />
-                <button
-                  type="button"
-                  onClick={buscarCep}
-                  className="btn-wisdom-blue inline-flex shrink-0 items-center gap-2 rounded-xl px-4 py-3 text-sm font-black"
-                >
-                  <MapPin className="h-4 w-4" />
-                  CEP
-                </button>
-              </div>
-              {cepStatus ? (
-                <p className="mt-2 text-sm font-bold text-blue-700">{cepStatus}</p>
-              ) : null}
-            </FormField>
-
-            <FormField label="Endereço" error={errors.endereco?.message}>
-              <TextInput {...register("endereco")} placeholder="Rua, avenida, número" />
-            </FormField>
-
-            <FormField label="Bairro">
-              <TextInput {...register("bairro")} placeholder="Ex: Paripe" />
-            </FormField>
-
-            <FormField label="Cidade">
-              <TextInput {...register("cidade")} />
-            </FormField>
-
-            <FormField label="Estado">
-              <TextInput {...register("estado")} />
-            </FormField>
+            <button
+              type="button"
+              onClick={buscarCnpj}
+              disabled={searchingCnpj}
+              className="mt-7 inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-5 text-sm font-black text-blue-700 hover:bg-blue-100 disabled:opacity-70"
+            >
+              {searchingCnpj ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              Buscar CNPJ
+            </button>
           </div>
-        </section>
 
-        <section className="rounded-3xl bg-white p-7 shadow-sm">
-          <h2 className="mb-6 text-2xl font-black text-blue-950">Perfil da vaga e funções</h2>
+          <div className="grid min-w-0 max-w-full gap-5 md:grid-cols-2">
+            <Field label="Razão social">
+              <input
+                name="razao_social"
+                defaultValue={getEmpresaValue(initial, ["razao_social"])}
+                className="h-12 rounded-xl border border-slate-200 px-4 text-sm font-bold outline-none focus:border-blue-500"
+              />
+            </Field>
 
-          <div className="grid gap-5">
-            <SkillPicker
-              title="Perfil desejado do candidato"
-              description="Selecione as habilidades esperadas para cruzamento com estagiários."
-              selected={skillsDesejadas}
-              onChange={(skills) => setValue("skills_desejadas", skills, { shouldDirty: true })}
+            <Field label="Nome fantasia">
+              <input
+                name="nome_fantasia"
+                defaultValue={getEmpresaValue(initial, ["nome_fantasia"])}
+                className="h-12 rounded-xl border border-slate-200 px-4 text-sm font-bold outline-none focus:border-blue-500"
+              />
+            </Field>
+          </div>
+
+          <div className="grid min-w-0 max-w-full gap-5 md:grid-cols-2">
+            <Field label="Responsável">
+              <input
+                name="responsavel_nome"
+                defaultValue={getEmpresaValue(initial, ["responsavel_nome", "nome_responsavel", "responsavel"])}
+                className="h-12 rounded-xl border border-slate-200 px-4 text-sm font-bold outline-none focus:border-blue-500"
+              />
+            </Field>
+
+            <Field label="Ramo de atuação">
+              <input
+                name="ramo_atuacao"
+                defaultValue={getEmpresaValue(initial, ["ramo_atuacao", "atividade_principal"])}
+                className="h-12 rounded-xl border border-slate-200 px-4 text-sm font-bold outline-none focus:border-blue-500"
+              />
+            </Field>
+          </div>
+
+          <div className="grid min-w-0 max-w-full gap-5 md:grid-cols-3">
+            <Field label="Telefone">
+              <input
+                name="telefone"
+                defaultValue={getEmpresaValue(initial, ["telefone"])}
+                className="h-12 rounded-xl border border-slate-200 px-4 text-sm font-bold outline-none focus:border-blue-500"
+              />
+            </Field>
+
+            <Field label="WhatsApp">
+              <input
+                name="whatsapp"
+                defaultValue={getEmpresaValue(initial, ["whatsapp"])}
+                className="h-12 rounded-xl border border-slate-200 px-4 text-sm font-bold outline-none focus:border-blue-500"
+              />
+            </Field>
+
+            <Field label="E-mail">
+              <input
+                name="email"
+                defaultValue={getEmpresaValue(initial, ["email"])}
+                className="h-12 rounded-xl border border-slate-200 px-4 text-sm font-bold outline-none focus:border-blue-500"
+              />
+            </Field>
+          </div>
+
+          <div className="grid min-w-0 max-w-full gap-5 md:grid-cols-[minmax(0,1fr)_auto]">
+            <Field label="CEP">
+              <input
+                name="cep"
+                defaultValue={getEmpresaValue(initial, ["cep"])}
+                className="h-12 rounded-xl border border-slate-200 px-4 text-sm font-bold outline-none focus:border-blue-500"
+              />
+            </Field>
+
+            <button
+              type="button"
+              onClick={buscarCep}
+              disabled={searchingCep}
+              className="mt-7 inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-5 text-sm font-black text-blue-700 hover:bg-blue-100 disabled:opacity-70"
+            >
+              {searchingCep ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              Buscar CEP
+            </button>
+          </div>
+
+          <div className="grid min-w-0 max-w-full gap-5 md:grid-cols-[minmax(0,1fr)_120px]">
+            <Field label="Endereço">
+              <input
+                name="endereco"
+                defaultValue={getEmpresaValue(initial, ["endereco", "logradouro"])}
+                className="h-12 rounded-xl border border-slate-200 px-4 text-sm font-bold outline-none focus:border-blue-500"
+              />
+            </Field>
+
+            <Field label="Número">
+              <input
+                name="numero"
+                defaultValue={getEmpresaValue(initial, ["numero"])}
+                className="h-12 rounded-xl border border-slate-200 px-4 text-sm font-bold outline-none focus:border-blue-500"
+              />
+            </Field>
+          </div>
+
+          <div className="grid min-w-0 max-w-full gap-5 md:grid-cols-4">
+            <Field label="Complemento">
+              <input
+                name="complemento"
+                defaultValue={getEmpresaValue(initial, ["complemento"])}
+                className="h-12 rounded-xl border border-slate-200 px-4 text-sm font-bold outline-none focus:border-blue-500"
+              />
+            </Field>
+
+            <Field label="Bairro">
+              <input
+                name="bairro"
+                defaultValue={getEmpresaValue(initial, ["bairro"])}
+                className="h-12 rounded-xl border border-slate-200 px-4 text-sm font-bold outline-none focus:border-blue-500"
+              />
+            </Field>
+
+            <Field label="Cidade">
+              <input
+                name="cidade"
+                defaultValue={getEmpresaValue(initial, ["cidade", "municipio"])}
+                className="h-12 rounded-xl border border-slate-200 px-4 text-sm font-bold outline-none focus:border-blue-500"
+              />
+            </Field>
+
+            <Field label="Estado">
+              <input
+                name="estado"
+                defaultValue={getEmpresaValue(initial, ["estado", "uf"])}
+                className="h-12 rounded-xl border border-slate-200 px-4 text-sm font-bold outline-none focus:border-blue-500"
+              />
+            </Field>
+          </div>
+
+          <div className="grid min-w-0 max-w-full gap-5 md:grid-cols-2">
+            <Field label="Valor de bolsa padrão">
+              <input
+                name="valor_bolsa"
+                defaultValue={getEmpresaValue(initial, ["valor_bolsa"])}
+                placeholder="Ex.: 600,00"
+                className="h-12 rounded-xl border border-slate-200 px-4 text-sm font-bold outline-none focus:border-blue-500"
+              />
+            </Field>
+
+            <Field label="Perfil geral desejado">
+              <input
+                name="perfil_candidato"
+                defaultValue={getEmpresaValue(initial, ["perfil_candidato"])}
+                placeholder="Resumo geral. As vagas específicas serão cadastradas abaixo."
+                className="h-12 rounded-xl border border-slate-200 px-4 text-sm font-bold outline-none focus:border-blue-500"
+              />
+            </Field>
+          </div>
+
+          <Field label="Observações">
+            <textarea
+              name="observacoes"
+              rows={4}
+              defaultValue={getEmpresaValue(initial, ["observacoes"])}
+              className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold outline-none focus:border-blue-500"
             />
+          </Field>
 
-            <SkillPicker
-              title="Funções previstas para o estagiário"
-              description="Selecione atividades que poderão ser executadas na empresa."
-              selected={funcoesSugeridas}
-              onChange={(skills) => setValue("funcoes_sugeridas", skills, { shouldDirty: true })}
-            />
-
-            <FormField label="Perfil do candidato">
-              <TextAreaInput
-                {...register("perfil_candidato")}
-                placeholder="Detalhes específicos do perfil desejado."
-              />
-            </FormField>
-
-            <FormField label="Funções do estagiário">
-              <TextAreaInput
-                {...register("funcoes_estagiario")}
-                placeholder="Atividades específicas da empresa."
-              />
-            </FormField>
-
-            <FormField label="Observações">
-              <TextAreaInput
-                {...register("observacoes")}
-                placeholder="Informações internas, restrições ou detalhes importantes."
-              />
-            </FormField>
-          </div>
-        </section>
-
-        <div className="flex justify-end">
           <button
             type="submit"
-            disabled={isPending}
-            className="btn-wisdom-red inline-flex items-center gap-2 rounded-xl px-6 py-4 font-black shadow-sm disabled:cursor-not-allowed disabled:opacity-70"
+            disabled={saving}
+            className="btn-wisdom-red inline-flex w-full items-center justify-center gap-2 rounded-xl px-6 py-4 font-black disabled:opacity-70"
           >
-            <Save className="h-5 w-5" />
-            {isPending
-              ? isEditing
-                ? "Atualizando..."
-                : "Salvando..."
-              : isEditing
-                ? "Atualizar empresa"
-                : "Salvar empresa"}
+            {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
+            {saving ? "Salvando..." : savedEmpresaId ? "Salvar alterações" : "Salvar empresa"}
           </button>
         </div>
       </form>
 
-      <EntityAccessCard
-        entityType="empresa"
-        entityId={savedEmpresaId}
-        title="Acesso da empresa"
-        description="Crie ou atualize o login da empresa para acesso ao portal."
-      />
+      <EmpresaVagasManager companyId={savedEmpresaId} />
 
       <EmbeddedDocumentoUploadForm
         entityType="empresa"
         entityId={savedEmpresaId}
         title="Documentos da empresa"
-        description="Anexe cartão CNPJ, contrato social, comprovantes e outros documentos."
+        description="Depois de salvar a empresa, anexe cartão CNPJ, contrato social, documentos e outros arquivos."
         defaultCategory="cartao_cnpj"
       />
     </div>

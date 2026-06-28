@@ -1,10 +1,8 @@
+import { getCarneHorizontalPdfData } from "@/data/rh/carne-horizontal-pdf.data";
+import { CarneHorizontalPrintClient } from "@/features/financeiro/CarneHorizontalPrintClient";
 import Link from "next/link";
-import { PageHeader } from "@/components/layout/RhShell";
-import { CarnePdfClient } from "@/features/financeiro/CarnePdfClient";
-import {
-  getCarnePdfById,
-  getHistoricoPdfsCarne,
-} from "@/data/rh/carne-pdf.data";
+
+export const dynamic = "force-dynamic";
 
 export default async function CarnePdfPage({
   params,
@@ -12,42 +10,29 @@ export default async function CarnePdfPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { data, errorMessage } = await getCarnePdfById(id);
-  const historico = await getHistoricoPdfsCarne(id);
+  const { data, errorMessage } = await getCarneHorizontalPdfData(id);
 
-  return (
-    <>
-      <PageHeader
-        eyebrow="Carnê"
-        title="PDF do carnê"
-        description="Capa, parcelas, QR Code Pix e número de controle para impressão."
-        action={
+  if (!data) {
+    return (
+      <main className="min-h-screen bg-slate-100 px-6 py-10">
+        <section className="mx-auto max-w-3xl rounded-3xl bg-white p-8 shadow-sm">
+          <h1 className="text-3xl font-black text-blue-950">
+            Carnê não encontrado
+          </h1>
+          <p className="mt-3 font-semibold text-slate-500">
+            {errorMessage || "Não foi possível carregar os dados do carnê."}
+          </p>
+
           <Link
             href="/rh/financeiro"
-            className="btn-wisdom-blue rounded-xl px-5 py-3 font-black"
+            className="btn-wisdom-blue mt-6 inline-flex rounded-xl px-5 py-3 font-black"
           >
             Voltar para financeiro
           </Link>
-        }
-      />
+        </section>
+      </main>
+    );
+  }
 
-      <section className="mx-auto max-w-7xl px-6 py-8">
-        {errorMessage ? (
-          <div className="rounded-2xl border border-red-100 bg-red-50 p-5 text-sm font-black text-red-700">
-            {errorMessage}
-          </div>
-        ) : null}
-
-        {historico.errorMessage ? (
-          <div className="mb-6 rounded-2xl border border-yellow-100 bg-yellow-50 p-5 text-sm font-black text-yellow-800">
-            {historico.errorMessage}
-          </div>
-        ) : null}
-
-        {data ? (
-          <CarnePdfClient data={data} historico={historico.data} />
-        ) : null}
-      </section>
-    </>
-  );
+  return <CarneHorizontalPrintClient data={data} />;
 }

@@ -58,9 +58,9 @@ function sanitizeName(value: string | null | undefined, fallback = "arquivo") {
     .substring(0, 120) || fallback;
 }
 
-function driveThumbnailUrl(fileId: string | null | undefined) {
+function protectedImageUrl(fileId: string | null | undefined) {
   if (!fileId) return null;
-  return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1200`;
+  return `/api/rh/files/image?file_id=${encodeURIComponent(fileId)}`;
 }
 
 export async function POST(request: Request) {
@@ -165,7 +165,7 @@ export async function POST(request: Request) {
   });
 
   const fileId = uploaded.file?.id || null;
-  const publicUrl = driveThumbnailUrl(fileId) || uploaded.file?.publicUrl || uploaded.file?.url || null;
+  const publicUrl = protectedImageUrl(fileId);
 
   const documentPayload = {
     entity_type: "geral",
