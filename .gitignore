@@ -41,3 +41,23 @@ yarn-error.log*
 next-env.d.ts
 
 .env.local
+
+# Arquivos locais gerados pelo ChatGPT / diagnósticos / backups
+_contexto-hr-horizon-stages-*/
+_contexto-hr-horizon-stages-*.zip
+backups/
+diagnosticos/
+gerar-contexto-hr-horizon-stages.ps1
+scripts/pacote-*.cjs
+scripts/diagnostico-*.ps1
+scripts/repair-landing-media.mjs
+
+# Arquivos locais gerados por diagnóstico, backup e pacotes temporários
+backups/
+diagnosticos/
+_contexto-hr-horizon-stages-*/
+_contexto-hr-horizon-stages-*.zip
+gerar-contexto-hr-horizon-stages.ps1
+scripts/pacote-*.cjs
+scripts/diagnostico-*.ps1
+scripts/repair-landing-media.mjs

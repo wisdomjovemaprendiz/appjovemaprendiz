@@ -1,5 +1,22 @@
-import { getSupabaseAdminClient } from "@/lib/supabase/server";
+﻿import { getSupabaseAdminClient } from "@/lib/supabase/server";
+function publicLandingMediaUrl(fileId: string | null | undefined) {
+  if (!fileId) return null;
+  return `/api/public/landing-media?file_id=${encodeURIComponent(fileId)}`;
+}
 
+function normalizeLandingImageUrl(row: Record<string, any>) {
+  return (
+    publicLandingMediaUrl(row.drive_file_id || row.file_id || row.google_drive_file_id) ||
+    row.drive_web_content_link ||
+    row.public_landing_media_url ||
+    row.public_url ||
+    row.publicUrl ||
+    row.image_url ||
+    row.url ||
+    row.drive_web_view_link ||
+    null
+  );
+}
 export type LandingSettings = {
   id: string;
   public_enabled: boolean;
@@ -32,7 +49,6 @@ export type LandingSettings = {
 
   updated_at: string | null;
 };
-
 export type LandingMedia = {
   id: string;
   category: string;
@@ -52,7 +68,6 @@ export type LandingMedia = {
   created_at: string | null;
   updated_at: string | null;
 };
-
 export type LandingUpdate = {
   id: string;
   title: string;
@@ -65,7 +80,6 @@ export type LandingUpdate = {
   created_at: string | null;
   updated_at: string | null;
 };
-
 export type LandingData = {
   settings: LandingSettings;
   media: LandingMedia[];
@@ -196,3 +210,4 @@ export async function getLandingRhData(): Promise<
       updatesResult.error?.message,
   };
 }
+

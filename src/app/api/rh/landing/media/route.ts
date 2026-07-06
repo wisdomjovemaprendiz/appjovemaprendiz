@@ -9,6 +9,11 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function publicLandingMediaUrl(fileId: string | null | undefined) {
+  if (!fileId) return null;
+  return `/api/public/landing-media?file_id=${encodeURIComponent(fileId)}`;
+}
+
 const allowedMimeTypes = new Set([
   "image/jpeg",
   "image/png",
@@ -221,7 +226,7 @@ export async function POST(request: Request) {
   });
 
   const fileId = uploaded.file?.id || null;
-  const publicUrl = driveThumbnailUrl(fileId) || uploaded.file?.publicUrl || uploaded.file?.url || null;
+  const publicUrl = driveThumbnailUrl(fileId) || uploaded.file?.url || null;
   const webViewLink = uploaded.file?.url || driveViewUrl(fileId) || publicUrl;
 
   const payload = {

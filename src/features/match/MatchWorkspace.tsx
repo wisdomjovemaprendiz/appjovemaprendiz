@@ -336,7 +336,7 @@ export function MatchWorkspace({
         size="md"
       >
         {selected && decision ? (
-          <form action={registrarDecisaoMatchAction} className="space-y-5">
+          <form action={async (formData) => { await registrarDecisaoMatchAction(formData); }} className="space-y-5">
             <input type="hidden" name="company_id" value={selected.company_id} />
             <input type="hidden" name="student_id" value={selected.student_id} />
             <input type="hidden" name="decisao" value={decision} />

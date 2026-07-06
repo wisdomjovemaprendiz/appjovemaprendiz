@@ -347,7 +347,7 @@ export function PendenciasWorkspace({
         size="md"
       >
         {selected && actionType ? (
-          <form action={action} className="space-y-5">
+          <form action={async (formData) => { await action(formData); }} className="space-y-5">
             <input type="hidden" name="id" value={selected.id} />
 
             <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">

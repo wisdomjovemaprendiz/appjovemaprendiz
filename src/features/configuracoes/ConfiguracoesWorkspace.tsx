@@ -95,7 +95,7 @@ function AssetUploadForm({
       });
 
       if (result.ok) {
-        event.currentTarget.reset();
+        (event.currentTarget as HTMLFormElement | null)?.reset?.();
         window.location.reload();
       }
     } catch (error) {
@@ -168,7 +168,7 @@ function CatalogForm({ itemType }: { itemType: string }) {
       });
 
       if (result.ok) {
-        event.currentTarget.reset();
+        (event.currentTarget as HTMLFormElement | null)?.reset?.();
         window.location.reload();
       }
     } catch (error) {

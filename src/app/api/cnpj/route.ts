@@ -209,7 +209,6 @@ export async function GET(request: Request) {
         ok: true,
         success: true,
         message: "CNPJ encontrado.",
-        source: "brasilapi",
 
         // Formato novo
         data: normalized,

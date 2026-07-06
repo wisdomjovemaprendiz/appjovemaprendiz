@@ -5,17 +5,12 @@ const protectedPrefixes = ["/rh", "/empresa", "/estagiario"];
 const publicPrefixes = ["/login", "/auth/alterar-senha"];
 
 function isProtected(pathname: string) {
-  return protectedPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
-}
-
-function isPublicAuth(pathname: string) {
-  return publicPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+  return protectedPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(prefix + "/"));
 }
 
 function homeForRole(role: string) {
-  if (role === "empresa") return "/empresa";
-  if (role === "estagiario") return "/estagiario";
-  return "/rh";
+  if (role === "rh_master" || role === "rh_operador") return "/rh";
+  return "/login?erro=portal_desativado";
 }
 
 function canAccess(pathname: string, role: string) {
@@ -24,11 +19,11 @@ function canAccess(pathname: string, role: string) {
   }
 
   if (pathname.startsWith("/empresa")) {
-    return role === "empresa" || role === "rh_master";
+    return false;
   }
 
   if (pathname.startsWith("/estagiario")) {
-    return role === "estagiario" || role === "rh_master";
+    return false;
   }
 
   return true;
@@ -128,11 +123,20 @@ export async function middleware(request: NextRequest) {
     !canAccess(pathname, profile.role)
   ) {
     const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = homeForRole(profile.role);
+    const home = homeForRole(profile.role);
+    const [homePath, homeQuery] = home.split("?");
+
+    redirectUrl.pathname = homePath;
+    redirectUrl.search = homeQuery ? "?" + homeQuery : "";
+
     return NextResponse.redirect(redirectUrl);
   }
 
   if (profile && pathname === "/login") {
+    if (profile.role !== "rh_master" && profile.role !== "rh_operador") {
+      return response;
+    }
+
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = profile.must_change_password
       ? "/auth/alterar-senha"

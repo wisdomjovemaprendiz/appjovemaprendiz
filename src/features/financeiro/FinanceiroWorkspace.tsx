@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import {
   cancelarCarneFinanceiroAction,
   cancelarParcelaFinanceiraAction,
+  excluirCarneFinanceiroAction,
   editarParcelaFinanceiraAction,
   estornarBaixaFinanceiraAction,
 } from "@/actions/rh/financeiro.actions";
@@ -37,6 +38,7 @@ import {
   SearchCheck,
   Settings,
   WalletCards,
+  Trash2,
   XCircle,
 } from "lucide-react";
 
@@ -71,6 +73,20 @@ function statusClass(status: string) {
   if (status === "atrasado") return "border-red-100 bg-red-50 text-red-700";
   if (status === "cancelado") return "border-slate-200 bg-slate-100 text-slate-600";
   return "border-yellow-100 bg-yellow-50 text-yellow-800";
+}
+
+function shortControl(value: string | null | undefined) {
+  const raw = String(value || "").trim();
+
+  if (!raw) return "Sem controle";
+
+  const parts = raw.split("-").filter(Boolean);
+
+  if (parts.length >= 2) {
+    return parts.slice(-2).join("-");
+  }
+
+  return raw.length > 12 ? raw.slice(-12) : raw;
 }
 
 function MetricCard({
@@ -128,14 +144,19 @@ function TableShell({
   );
 }
 
+
+
+
 function CarnesTable({
   carnes,
   onVerParcelas,
   onCancelar,
+  onExcluir,
 }: {
   carnes: PaymentBookletItem[];
   onVerParcelas: (carne: PaymentBookletItem) => void;
   onCancelar: (carne: PaymentBookletItem) => void;
+  onExcluir: (carne: PaymentBookletItem) => void;
 }) {
   if (carnes.length === 0) {
     return (
@@ -147,90 +168,107 @@ function CarnesTable({
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-[1080px] w-full border-separate border-spacing-y-2">
-        <thead>
-          <tr className="text-left text-xs font-black uppercase tracking-wide text-slate-500">
-            <th className="px-4 py-2">Empresa</th>
-            <th className="px-4 py-2">Carnê</th>
-            <th className="px-4 py-2">Parcelas</th>
-            <th className="px-4 py-2">Valor</th>
-            <th className="px-4 py-2">1º vencimento</th>
-            <th className="px-4 py-2">Status</th>
-            <th className="px-4 py-2 text-right">Ações</th>
-          </tr>
-        </thead>
+    <div className="rounded-2xl border border-slate-100 bg-white">
+      <div className="grid grid-cols-[minmax(190px,1.35fr)_minmax(150px,1fr)_70px_105px_110px_95px_240px] items-center gap-3 border-b border-slate-100 px-4 py-3 text-[10px] font-black uppercase tracking-wide text-slate-500">
+        <span>Empresa</span>
+        <span>Carnê</span>
+        <span className="text-center">Parc.</span>
+        <span>Valor</span>
+        <span>1º venc.</span>
+        <span>Status</span>
+        <span className="text-right">Ações</span>
+      </div>
 
-        <tbody>
-          {carnes.map((carne) => (
-            <tr key={carne.id} className="bg-slate-50">
-              <td className="rounded-l-2xl px-4 py-4">
-                <p className="font-black text-blue-950">{carne.company_name}</p>
-                <p className="text-xs font-semibold text-slate-500">
-                  {carne.company_document || "Documento não informado"}
-                </p>
-              </td>
-              <td className="px-4 py-4">
-                <p className="font-bold text-slate-700">{carne.titulo || "Carnê"}</p>
-                <p className="text-xs font-semibold text-slate-500">
-                  {carne.descricao || "Sem descrição"}
-                </p>
-              </td>
-              <td className="px-4 py-4 font-bold text-slate-700">
-                {carne.quantidade_parcelas || 0}
-              </td>
-              <td className="px-4 py-4 font-bold text-slate-700">
-                {formatCurrency(carne.valor_parcela)}
-              </td>
-              <td className="px-4 py-4 font-bold text-slate-700">
-                {formatDate(carne.vencimento_primeira)}
-              </td>
-              <td className="px-4 py-4">
-                <span
-                  className={`rounded-full border px-3 py-1 text-xs font-black ${
-                    carne.status === "cancelado"
-                      ? "border-red-100 bg-red-50 text-red-700"
-                      : "border-blue-100 bg-blue-50 text-blue-700"
-                  }`}
+      <div className="divide-y divide-slate-100">
+        {carnes.map((carne) => (
+          <div
+            key={carne.id}
+            className="grid grid-cols-[minmax(190px,1.35fr)_minmax(150px,1fr)_70px_105px_110px_95px_240px] items-center gap-3 px-4 py-3 text-[12px] transition hover:bg-slate-50"
+          >
+            <div className="min-w-0">
+              <p className="truncate font-black leading-tight text-blue-950" title={carne.company_name}>
+                {carne.company_name}
+              </p>
+              <p className="truncate text-[10px] font-semibold leading-tight text-slate-500">
+                {carne.company_document || "Documento não informado"}
+              </p>
+            </div>
+
+            <div className="min-w-0">
+              <p className="truncate font-bold leading-tight text-slate-800" title={carne.titulo || "Carnê"}>
+                {carne.titulo || "Carnê"}
+              </p>
+              <p className="truncate text-[10px] font-semibold leading-tight text-slate-500">
+                {carne.descricao || "Sem descrição"}
+              </p>
+            </div>
+
+            <p className="text-center font-black text-blue-950">
+              {carne.quantidade_parcelas || 0}
+            </p>
+
+            <p className="whitespace-nowrap font-black text-slate-800">
+              {formatCurrency(carne.valor_parcela)}
+            </p>
+
+            <p className="whitespace-nowrap font-black text-slate-800">
+              {formatDate(carne.vencimento_primeira)}
+            </p>
+
+            <div>
+              <span
+                className={
+                  "inline-flex rounded-full border px-2 py-1 text-[10px] font-black leading-none " +
+                  (carne.status === "cancelado"
+                    ? "border-red-100 bg-red-50 text-red-700"
+                    : "border-blue-100 bg-blue-50 text-blue-700")
+                }
+              >
+                {carne.status || "ativo"}
+              </span>
+            </div>
+
+            <div className="flex justify-end gap-1.5">
+              <button
+                type="button"
+                onClick={() => onVerParcelas(carne)}
+                className="inline-flex h-8 items-center gap-1 rounded-lg border border-blue-100 bg-white px-2.5 text-[10px] font-black text-blue-700 hover:bg-blue-50"
+              >
+                <ReceiptText className="h-3.5 w-3.5" />
+                Parcelas
+              </button>
+
+              <Link
+                href={"/rh/financeiro/carnes/" + carne.id + "/pdf"}
+                className="inline-flex h-8 items-center gap-1 rounded-lg bg-blue-700 px-2.5 text-[10px] font-black text-white hover:bg-blue-800"
+              >
+                <FileDown className="h-3.5 w-3.5" />
+                PDF
+              </Link>
+
+              {carne.status !== "cancelado" ? (
+                <button
+                  type="button"
+                  onClick={() => onCancelar(carne)}
+                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-red-100 bg-white px-2.5 text-[10px] font-black text-red-700 hover:bg-red-50"
                 >
-                  {carne.status || "ativo"}
-                </span>
-              </td>
-              <td className="rounded-r-2xl px-4 py-4 text-right">
-                <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => onVerParcelas(carne)}
-                    className="inline-flex items-center gap-2 rounded-xl border border-blue-100 bg-white px-3 py-2 text-xs font-black text-blue-700 hover:bg-blue-50"
-                  >
-                    <ReceiptText className="h-4 w-4" />
-                    Parcelas
-                  </button>
+                  <Ban className="h-3.5 w-3.5" />
+                  Cancelar
+                </button>
+              ) : null}
 
-                  <Link
-                    href={`/rh/financeiro/carnes/${carne.id}/pdf`}
-                    className="inline-flex items-center gap-2 rounded-xl bg-blue-700 px-3 py-2 text-xs font-black text-white hover:bg-blue-800"
-                  >
-                    <FileDown className="h-4 w-4" />
-                    PDF
-                  </Link>
-
-                  {carne.status !== "cancelado" ? (
-                    <button
-                      type="button"
-                      onClick={() => onCancelar(carne)}
-                      className="inline-flex items-center gap-2 rounded-xl border border-red-100 bg-white px-3 py-2 text-xs font-black text-red-700 hover:bg-red-50"
-                    >
-                      <Ban className="h-4 w-4" />
-                      Cancelar
-                    </button>
-                  ) : null}
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+              <button
+                type="button"
+                onClick={() => onExcluir(carne)}
+                className="inline-flex h-8 items-center gap-1 rounded-lg border border-red-200 bg-white px-2.5 text-[10px] font-black text-red-700 hover:bg-red-50"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Excluir
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -258,130 +296,127 @@ function ParcelasTable({
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-[1260px] w-full border-separate border-spacing-y-2">
-        <thead>
-          <tr className="text-left text-xs font-black uppercase tracking-wide text-slate-500">
-            <th className="px-4 py-2">Controle</th>
-            <th className="px-4 py-2">Empresa</th>
-            <th className="px-4 py-2">Parcela</th>
-            <th className="px-4 py-2">Vencimento</th>
-            <th className="px-4 py-2">Valor</th>
-            <th className="px-4 py-2">Status</th>
-            <th className="px-4 py-2">Comprovante</th>
-            <th className="px-4 py-2 text-right">Ações</th>
-          </tr>
-        </thead>
+    <div className="rounded-2xl border border-slate-100 bg-white">
+      <div className="grid grid-cols-[95px_minmax(185px,1.3fr)_70px_95px_115px_92px_105px_190px] items-center gap-3 border-b border-slate-100 px-4 py-3 text-[10px] font-black uppercase tracking-wide text-slate-500">
+        <span>Controle</span>
+        <span>Empresa</span>
+        <span className="text-center">Parc.</span>
+        <span>Venc.</span>
+        <span>Valor</span>
+        <span>Status</span>
+        <span>Comp.</span>
+        <span className="text-right">Ações</span>
+      </div>
 
-        <tbody>
-          {charges.map((charge) => (
-            <tr key={charge.id} className="bg-slate-50">
-              <td className="rounded-l-2xl px-4 py-4">
-                <p className="font-black text-blue-950">
-                  {charge.numero_controle || "Sem controle"}
+      <div className="divide-y divide-slate-100">
+        {charges.map((charge) => (
+          <div
+            key={charge.id}
+            className="grid grid-cols-[95px_minmax(185px,1.3fr)_70px_95px_115px_92px_105px_190px] items-center gap-3 px-4 py-3 text-[12px] transition hover:bg-slate-50"
+          >
+            <div className="min-w-0" title={charge.numero_controle || "Sem controle"}>
+              <p className="truncate font-black leading-tight text-blue-950">
+                {shortControl(charge.numero_controle)}
+              </p>
+            </div>
+
+            <div className="min-w-0">
+              <p className="truncate font-black leading-tight text-blue-950" title={charge.company_name}>
+                {charge.company_name}
+              </p>
+              <p className="truncate text-[10px] font-semibold leading-tight text-slate-500">
+                {charge.company_document || "Documento não informado"}
+              </p>
+            </div>
+
+            <p className="text-center font-black text-slate-800">
+              {charge.parcela_numero || "-"} de {charge.total_parcelas || "-"}
+            </p>
+
+            <p className="whitespace-nowrap font-black text-slate-800">
+              {formatDate(charge.vencimento)}
+            </p>
+
+            <div className="leading-tight">
+              <p className="whitespace-nowrap font-black text-slate-800">
+                {formatCurrency(charge.valor)}
+              </p>
+              {charge.valor_com_desconto ? (
+                <p className="whitespace-nowrap text-[10px] font-bold text-green-700">
+                  Em dia: {formatCurrency(charge.valor_com_desconto)}
                 </p>
-              </td>
-              <td className="px-4 py-4">
-                <p className="font-black text-blue-950">{charge.company_name}</p>
-                <p className="text-xs font-semibold text-slate-500">
-                  {charge.company_document || "Documento não informado"}
-                </p>
-              </td>
-              <td className="px-4 py-4 font-bold text-slate-700">
-                {charge.parcela_numero || "-"} de {charge.total_parcelas || "-"}
-              </td>
-              <td className="px-4 py-4 font-bold text-slate-700">
-                {formatDate(charge.vencimento)}
-              </td>
-              <td className="px-4 py-4">
-                <p className="font-bold text-slate-700">{formatCurrency(charge.valor)}</p>
-                {charge.valor_com_desconto ? (
-                  <p className="text-xs font-bold text-green-700">
-                    Em dia: {formatCurrency(charge.valor_com_desconto)}
-                  </p>
-                ) : null}
-              </td>
-              <td className="px-4 py-4">
-                <span
-                  className={`rounded-full border px-3 py-1 text-xs font-black ${statusClass(charge.status)}`}
+              ) : null}
+            </div>
+
+            <div>
+              <span className={"inline-flex rounded-full border px-2 py-1 text-[10px] font-black leading-none " + statusClass(charge.status)}>
+                {statusLabel(charge.status)}
+              </span>
+            </div>
+
+            <div>
+              {charge.comprovante_url ? (
+                <a
+                  href={charge.comprovante_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-green-100 bg-white px-2 text-[10px] font-black text-green-700 hover:bg-green-50"
                 >
-                  {statusLabel(charge.status)}
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Abrir
+                </a>
+              ) : (
+                <span className="text-[10px] font-black text-slate-400">
+                  Não anexado
                 </span>
-              </td>
-              <td className="px-4 py-4">
-                {charge.comprovante_url ? (
-                  <a
-                    href={charge.comprovante_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-2 rounded-xl border border-green-100 bg-white px-3 py-2 text-xs font-black text-green-700 hover:bg-green-50"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    Abrir
-                  </a>
-                ) : (
-                  <span className="text-xs font-black text-slate-400">
-                    Não anexado
-                  </span>
-                )}
-              </td>
-              <td className="rounded-r-2xl px-4 py-4 text-right">
-                <div className="flex justify-end gap-2">
-                  {charge.status === "pago" ? (
-                    <button
-                      type="button"
-                      onClick={() => onEstornar(charge)}
-                      className="inline-flex items-center gap-2 rounded-xl border border-yellow-100 bg-white px-3 py-2 text-xs font-black text-yellow-800 hover:bg-yellow-50"
-                    >
-                      <RotateCcw className="h-4 w-4" />
-                      Estornar
-                    </button>
-                  ) : null}
+              )}
+            </div>
 
-                  {charge.status !== "pago" && charge.status !== "cancelado" ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => onBaixar(charge.numero_controle || "")}
-                        className="inline-flex items-center gap-2 rounded-xl bg-green-600 px-3 py-2 text-xs font-black text-white hover:bg-green-700"
-                      >
-                        <CheckCircle2 className="h-4 w-4" />
-                        Baixar
-                      </button>
+            <div className="flex justify-end gap-1">
+              {charge.status !== "pago" && charge.status !== "cancelado" ? (
+                <button
+                  type="button"
+                  onClick={() => onBaixar(charge.numero_controle || "")}
+                  className="inline-flex h-8 items-center gap-1 rounded-lg bg-green-600 px-2 text-[10px] font-black text-white hover:bg-green-700"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Baixar
+                </button>
+              ) : null}
 
-                      <button
-                        type="button"
-                        onClick={() => onEditar(charge)}
-                        className="inline-flex items-center gap-2 rounded-xl border border-blue-100 bg-white px-3 py-2 text-xs font-black text-blue-700 hover:bg-blue-50"
-                      >
-                        <Edit className="h-4 w-4" />
-                        Editar
-                      </button>
+              {charge.status === "pago" ? (
+                <button
+                  type="button"
+                  onClick={() => onEstornar(charge)}
+                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-yellow-100 bg-white px-2 text-[10px] font-black text-yellow-800 hover:bg-yellow-50"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Estornar
+                </button>
+              ) : null}
 
-                      <button
-                        type="button"
-                        onClick={() => onCancelar(charge)}
-                        className="inline-flex items-center gap-2 rounded-xl border border-red-100 bg-white px-3 py-2 text-xs font-black text-red-700 hover:bg-red-50"
-                      >
-                        <XCircle className="h-4 w-4" />
-                        Cancelar
-                      </button>
-                    </>
-                  ) : null}
+              {charge.status !== "pago" && charge.status !== "cancelado" ? (
+                <button
+                  type="button"
+                  onClick={() => onEditar(charge)}
+                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-blue-100 bg-white px-2 text-[10px] font-black text-blue-700 hover:bg-blue-50"
+                >
+                  <Edit className="h-3.5 w-3.5" />
+                  Editar
+                </button>
+              ) : null}
 
-                  <Link
-                    href={`/rh/financeiro/${charge.id}/pdf`}
-                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-blue-950 hover:bg-slate-50"
-                  >
-                    <FileDown className="h-4 w-4" />
-                    PDF
-                  </Link>
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+              <Link
+                href={"/rh/financeiro/" + charge.id + "/pdf"}
+                className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 text-[10px] font-black text-blue-950 hover:bg-slate-50"
+              >
+                <FileDown className="h-3.5 w-3.5" />
+                PDF
+              </Link>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -477,7 +512,7 @@ function BaixasTable({
 
 function EditarParcelaForm({ charge }: { charge: FinancialChargeItem }) {
   return (
-    <form action={editarParcelaFinanceiraAction} className="space-y-5">
+    <form action={async (formData) => { await editarParcelaFinanceiraAction(formData); }} className="space-y-5">
       <input type="hidden" name="id" value={charge.id} />
 
       <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
@@ -608,7 +643,7 @@ function MotivoForm({
   tone: "danger" | "warning";
 }) {
   return (
-    <form action={action} className="space-y-5">
+    <form action={async (formData) => { await action(formData); }} className="space-y-5">
       <input type="hidden" name="id" value={id} />
 
       <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
@@ -665,6 +700,7 @@ export function FinanceiroWorkspace({
   const [editarParcela, setEditarParcela] = useState<FinancialChargeItem | null>(null);
   const [cancelarParcela, setCancelarParcela] = useState<FinancialChargeItem | null>(null);
   const [cancelarCarne, setCancelarCarne] = useState<PaymentBookletItem | null>(null);
+  const [excluirCarne, setExcluirCarne] = useState<PaymentBookletItem | null>(null);
   const [estornarParcela, setEstornarParcela] = useState<FinancialChargeItem | null>(null);
 
   const inadimplentes = useMemo(
@@ -868,13 +904,14 @@ export function FinanceiroWorkspace({
             carnes={filteredCarnes}
             onVerParcelas={verParcelas}
             onCancelar={setCancelarCarne}
+            onExcluir={setExcluirCarne}
           />
         </TableShell>
       ) : null}
 
       {tab === "parcelas" ? (
         <TableShell
-          title={selectedBooklet ? `Parcelas — ${selectedBooklet.company_name}` : "Parcelas"}
+          title={selectedBooklet ? `Parcelas â€” ${selectedBooklet.company_name}` : "Parcelas"}
           description="Folhas do carnê com número de controle individual."
         >
           <ParcelasTable

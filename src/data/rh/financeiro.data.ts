@@ -140,6 +140,11 @@ export async function getFinanceiroOptions(): Promise<{
   };
 }
 
+function isRemovedFromList(item: { status?: string | null; motivo_cancelamento?: string | null }) {
+  const reason = String(item.motivo_cancelamento || "");
+  return reason.includes("[EXCLUIDO_DA_LISTA]") || String(item.status || "").toLowerCase() === "excluido";
+}
+
 export async function getFinanceiroData(): Promise<{
   carnes: PaymentBookletItem[];
   charges: FinancialChargeItem[];

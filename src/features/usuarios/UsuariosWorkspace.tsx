@@ -45,7 +45,7 @@ function NovoUsuarioForm({
   const [role, setRole] = useState("rh_operador");
 
   return (
-    <form action={criarUsuarioSistemaAction} className="space-y-5">
+    <form action={async (formData) => { await criarUsuarioSistemaAction(formData); }} className="space-y-5">
       <div className="grid gap-4 md:grid-cols-2">
         <label className="grid gap-2">
           <span className="text-sm font-black text-blue-950">Nome</span>
@@ -149,7 +149,7 @@ function NovoUsuarioForm({
 
 function ResetSenhaForm({ user }: { user: UsuarioSistema }) {
   return (
-    <form action={redefinirSenhaUsuarioAction} className="space-y-5">
+    <form action={async (formData) => { await redefinirSenhaUsuarioAction(formData); }} className="space-y-5">
       <input type="hidden" name="id" value={user.id} />
 
       <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
@@ -182,7 +182,7 @@ function ResetSenhaForm({ user }: { user: UsuarioSistema }) {
 
 function StatusUsuarioForm({ user }: { user: UsuarioSistema }) {
   return (
-    <form action={alterarStatusUsuarioAction} className="space-y-5">
+    <form action={async (formData) => { await alterarStatusUsuarioAction(formData); }} className="space-y-5">
       <input type="hidden" name="id" value={user.id} />
 
       <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">

@@ -11,7 +11,7 @@ export default async function DocumentosPage() {
       <PageHeader
         eyebrow="Arquivos"
         title="Documentos"
-        description="Envio, consulta, vínculo, visualização e arquivamento de documentos."
+        description="Envio, consulta, vínculo, visualização e exclusão de documentos."
       />
 
       {options.errorMessage ? (

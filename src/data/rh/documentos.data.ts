@@ -118,7 +118,6 @@ export async function getDocumentos(): Promise<{
     .select(
       "id, entity_type, entity_id, category, file_name, original_name, mime_type, file_size, storage_provider, drive_file_id, drive_folder_id, drive_web_view_link, drive_web_content_link, status, version, created_at"
     )
-    .neq("status", "arquivado")
     .order("created_at", { ascending: false })
     .limit(100);
 

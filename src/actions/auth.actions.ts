@@ -5,6 +5,7 @@ import {
   createSupabaseServerAuthClient,
   getCurrentProfile,
   homeForRole,
+  isRhRole,
 } from "@/lib/supabase/server-auth";
 
 export type AuthActionState = {
@@ -75,6 +76,16 @@ export async function loginAction(
     };
   }
 
+  if (!isRhRole(profile.role)) {
+    await supabase.auth.signOut();
+
+    return {
+      ok: false,
+      message:
+        "O portal da empresa e do estagiário está temporariamente desativado. Acesse com um usuário RH.",
+    };
+  }
+
   await supabase.from("security_events").insert({
     user_id: user.id,
     email,
@@ -135,7 +146,7 @@ export async function changePasswordAction(
   if (error) {
     return {
       ok: false,
-      message: `Erro ao alterar senha: ${error.message}`,
+      message: "Erro ao alterar senha: " + error.message,
     };
   }
 

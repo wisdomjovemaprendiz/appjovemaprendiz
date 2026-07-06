@@ -705,7 +705,6 @@ function CoverStrip({ data }: { data: CarneHorizontalPdfData }) {
         </div>
 
         <div className="stub-division">
-          <div className="stub-label">Valor total</div>
           <div className="stub-value">{safeText(data.carne.valor_total)}</div>
         </div>
       </div>

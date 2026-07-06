@@ -2,13 +2,13 @@
 
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { arquivarDocumentoAction } from "@/actions/rh/documento.actions";
+import { useRouter } from "next/navigation";
+import { excluirDocumentoAction } from "@/actions/rh/documento.actions";
 import { Modal } from "@/components/ui/Modal";
 import { EmptyTable, MetricCard, StatusPill, TableShell } from "@/components/ui/WorkspaceUi";
 import { DocumentoUploadForm } from "@/features/documentos/DocumentoUploadForm";
 import type { DocumentoListItem, DocumentoOptions } from "@/data/rh/documentos.data";
 import {
-  Archive,
   Building2,
   ExternalLink,
   FileText,
@@ -18,6 +18,7 @@ import {
   Plus,
   Search,
   ScrollText,
+  Trash2,
 } from "lucide-react";
 
 type DocumentosTab = "todos" | "estagiario" | "empresa" | "contrato" | "geral";
@@ -26,10 +27,10 @@ function formatFileSize(size: number | null) {
   if (!size) return "Não informado";
 
   if (size < 1024 * 1024) {
-    return `${Math.max(1, Math.round(size / 1024))} KB`;
+    return String(Math.max(1, Math.round(size / 1024))) + " KB";
   }
 
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  return (size / (1024 * 1024)).toFixed(1) + " MB";
 }
 
 function formatDateTime(date: string | null) {
@@ -45,15 +46,27 @@ function entityLabel(type: string | null) {
   if (type === "empresa") return "Empresa";
   if (type === "estagiario") return "Estagiário";
   if (type === "contrato") return "Contrato";
+  if (type === "financeiro") return "Financeiro";
+  if (type === "landing") return "Landing";
+  if (type === "rh") return "RH";
   return "Geral";
+}
+
+function humanize(value: string | null) {
+  if (!value) return "Não informada";
+
+  return value
+    .replace(/_/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function DocumentosTable({
   documentos,
-  onArquivar,
+  onExcluir,
 }: {
   documentos: DocumentoListItem[];
-  onArquivar: (documento: DocumentoListItem) => void;
+  onExcluir: (documento: DocumentoListItem) => void;
 }) {
   if (documentos.length === 0) {
     return (
@@ -64,93 +77,100 @@ function DocumentosTable({
     );
   }
 
+  const gridClass =
+    "grid grid-cols-[minmax(0,2.1fr)_minmax(0,1.15fr)_minmax(0,1.15fr)_minmax(0,1.2fr)_82px] items-center gap-3";
+
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-[1100px] w-full border-separate border-spacing-y-2">
-        <thead>
-          <tr className="text-left text-xs font-black uppercase tracking-wide text-slate-500">
-            <th className="px-4 py-2">Arquivo</th>
-            <th className="px-4 py-2">Vínculo</th>
-            <th className="px-4 py-2">Categoria</th>
-            <th className="px-4 py-2">Tipo/Tamanho</th>
-            <th className="px-4 py-2">Envio</th>
-            <th className="px-4 py-2">Status</th>
-            <th className="px-4 py-2 text-right">Ações</th>
-          </tr>
-        </thead>
+    <div className="overflow-hidden rounded-2xl border border-slate-100">
+      <div
+        className={
+          gridClass +
+          " bg-slate-50 px-4 py-3 text-[11px] font-black uppercase tracking-wide text-slate-500"
+        }
+      >
+        <span>Arquivo</span>
+        <span>Vínculo</span>
+        <span>Categoria</span>
+        <span>Tipo/Envio</span>
+        <span className="text-right">Ações</span>
+      </div>
 
-        <tbody>
-          {documentos.map((documento) => (
-            <tr key={documento.id} className="bg-slate-50">
-              <td className="rounded-l-2xl px-4 py-4">
-                <p className="max-w-[260px] truncate font-black text-blue-950">
-                  {documento.original_name || documento.file_name || "Documento sem nome"}
-                </p>
-                <p className="max-w-[260px] truncate text-xs font-semibold text-slate-500">
-                  {documento.file_name || "Nome interno não informado"}
-                </p>
-              </td>
+      <div className="divide-y divide-slate-100">
+        {documentos.map((documento) => (
+          <article
+            key={documento.id}
+            className={gridClass + " min-h-[68px] px-4 py-3 transition hover:bg-slate-50"}
+          >
+            <div className="min-w-0">
+              <p className="truncate text-sm font-black text-blue-950">
+                {documento.original_name || documento.file_name || "Documento sem nome"}
+              </p>
+              <p className="mt-1 truncate text-[11px] font-semibold text-slate-500">
+                {documento.file_name || "Nome interno não informado"}
+              </p>
+            </div>
 
-              <td className="px-4 py-4">
-                <p className="font-bold text-slate-700">
-                  {entityLabel(documento.entity_type)}
-                </p>
-                <p className="max-w-[220px] truncate text-xs font-semibold text-slate-500">
-                  {documento.entity_name || "Sem vínculo"}
-                </p>
-              </td>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold text-slate-700">
+                {entityLabel(documento.entity_type)}
+              </p>
+              <p className="mt-1 truncate text-[11px] font-semibold text-slate-500">
+                {documento.entity_name || "Sem vínculo"}
+              </p>
+            </div>
 
-              <td className="px-4 py-4 font-bold text-slate-700">
-                {documento.category || "Não informada"}
-              </td>
-
-              <td className="px-4 py-4">
-                <p className="font-bold text-slate-700">
-                  {documento.mime_type || "Tipo não informado"}
-                </p>
-                <p className="text-xs font-semibold text-slate-500">
-                  {formatFileSize(documento.file_size)}
-                </p>
-              </td>
-
-              <td className="px-4 py-4 font-bold text-slate-700">
-                {formatDateTime(documento.created_at)}
-              </td>
-
-              <td className="px-4 py-4">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold text-slate-700">
+                {humanize(documento.category)}
+              </p>
+              <div className="mt-1">
                 <StatusPill tone={documento.status === "ativo" ? "ok" : "muted"}>
                   {documento.status || "ativo"}
                 </StatusPill>
-              </td>
+              </div>
+            </div>
 
-              <td className="rounded-r-2xl px-4 py-4">
-                <div className="flex justify-end gap-2">
-                  {documento.drive_web_view_link ? (
-                    <a
-                      href={documento.drive_web_view_link}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-2 rounded-xl bg-blue-700 px-3 py-2 text-xs font-black text-white hover:bg-blue-800"
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                      Abrir
-                    </a>
-                  ) : null}
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold text-slate-700">
+                {documento.mime_type || "Tipo não informado"}
+              </p>
+              <p className="mt-1 truncate text-[11px] font-semibold text-slate-500">
+                {formatFileSize(documento.file_size)}
+              </p>
+              <p className="mt-1 truncate text-[11px] font-bold text-blue-950">
+                {formatDateTime(documento.created_at)}
+              </p>
+            </div>
 
-                  <button
-                    type="button"
-                    onClick={() => onArquivar(documento)}
-                    className="inline-flex items-center gap-2 rounded-xl border border-red-100 bg-white px-3 py-2 text-xs font-black text-red-700 hover:bg-red-50"
-                  >
-                    <Archive className="h-4 w-4" />
-                    Arquivar
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+            <div className="flex items-center justify-end gap-2">
+              {documento.drive_web_view_link ? (
+                <a
+                  href={documento.drive_web_view_link}
+                  target="_blank"
+                  rel="noreferrer"
+                  title="Abrir documento"
+                  aria-label="Abrir documento"
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-700 text-white transition hover:bg-blue-800"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  <span className="sr-only">Abrir documento</span>
+                </a>
+              ) : null}
+
+              <button
+                type="button"
+                onClick={() => onExcluir(documento)}
+                title="Excluir documento"
+                aria-label="Excluir documento"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-red-100 bg-white text-red-700 transition hover:bg-red-50"
+              >
+                <Trash2 className="h-4 w-4" />
+                <span className="sr-only">Excluir documento</span>
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
     </div>
   );
 }
@@ -162,16 +182,19 @@ export function DocumentosWorkspace({
   documentos: DocumentoListItem[];
   options: DocumentoOptions;
 }) {
+  const router = useRouter();
   const [tab, setTab] = useState<DocumentosTab>("todos");
   const [uploadOpen, setUploadOpen] = useState(false);
   const [ajudaOpen, setAjudaOpen] = useState(false);
-  const [documentoArquivar, setDocumentoArquivar] = useState<DocumentoListItem | null>(null);
+  const [documentoExcluir, setDocumentoExcluir] = useState<DocumentoListItem | null>(null);
   const [search, setSearch] = useState("");
 
   const estagiarioDocs = documentos.filter((item) => item.entity_type === "estagiario");
   const empresaDocs = documentos.filter((item) => item.entity_type === "empresa");
   const contratoDocs = documentos.filter((item) => item.entity_type === "contrato");
-  const geralDocs = documentos.filter((item) => item.entity_type === "geral" || !item.entity_type);
+  const geralDocs = documentos.filter(
+    (item) => item.entity_type === "geral" || item.entity_type === "rh" || !item.entity_type
+  );
 
   const baseList = useMemo(() => {
     if (tab === "estagiario") return estagiarioDocs;
@@ -202,6 +225,12 @@ export function DocumentosWorkspace({
     );
   }, [baseList, search]);
 
+  async function handleExcluirDocumento(formData: FormData) {
+    setDocumentoExcluir(null);
+    await excluirDocumentoAction(formData);
+    router.refresh();
+  }
+
   const tabs: Array<{ id: DocumentosTab; label: string; icon: ReactNode }> = [
     { id: "todos", label: "Todos", icon: <FileText className="h-5 w-5" /> },
     { id: "estagiario", label: "Estagiários", icon: <GraduationCap className="h-5 w-5" /> },
@@ -217,7 +246,7 @@ export function DocumentosWorkspace({
           icon={<FileText className="h-7 w-7" />}
           label="Documentos"
           value={String(documentos.length)}
-          helper="total ativo"
+          helper="total no banco"
         />
         <MetricCard
           icon={<GraduationCap className="h-7 w-7" />}
@@ -248,11 +277,12 @@ export function DocumentosWorkspace({
               key={item.id}
               type="button"
               onClick={() => setTab(item.id)}
-              className={`inline-flex min-h-14 flex-1 shrink-0 items-center justify-center gap-2 rounded-xl px-5 py-3 text-base font-black ${
-                tab === item.id
+              className={
+                "inline-flex min-h-14 flex-1 shrink-0 items-center justify-center gap-2 rounded-xl px-5 py-3 text-base font-black " +
+                (tab === item.id
                   ? "bg-white text-blue-950 shadow-sm"
-                  : "text-slate-500 hover:text-blue-950"
-              }`}
+                  : "text-slate-500 hover:text-blue-950")
+              }
             >
               {item.icon}
               {item.label}
@@ -293,9 +323,9 @@ export function DocumentosWorkspace({
 
       <TableShell
         title="Documentos"
-        description="Consulta, visualização e arquivamento de arquivos vinculados aos cadastros."
+        description="Consulta, visualização e exclusão de documentos vinculados aos cadastros."
       >
-        <DocumentosTable documentos={filtered} onArquivar={setDocumentoArquivar} />
+        <DocumentosTable documentos={filtered} onExcluir={setDocumentoExcluir} />
       </TableShell>
 
       <Modal
@@ -309,32 +339,35 @@ export function DocumentosWorkspace({
       </Modal>
 
       <Modal
-        open={Boolean(documentoArquivar)}
-        onClose={() => setDocumentoArquivar(null)}
-        title="Arquivar documento"
-        description="O documento deixará de aparecer na lista principal, mas permanecerá registrado."
+        open={Boolean(documentoExcluir)}
+        onClose={() => setDocumentoExcluir(null)}
+        title="Excluir documento"
+        description="O registro será removido do banco de dados. Quando houver arquivo no Google Drive, o sistema tentará enviá-lo para a lixeira."
         size="md"
       >
-        {documentoArquivar ? (
-          <form action={arquivarDocumentoAction} className="space-y-5">
-            <input type="hidden" name="id" value={documentoArquivar.id} />
+        {documentoExcluir ? (
+          <form action={handleExcluirDocumento} className="space-y-5">
+            <input type="hidden" name="id" value={documentoExcluir.id} />
 
-            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-              <p className="text-sm font-black text-slate-500">Arquivo</p>
+            <div className="rounded-2xl border border-red-100 bg-red-50 p-4">
+              <p className="text-sm font-black text-red-700">Documento selecionado</p>
               <p className="mt-1 font-black text-blue-950">
-                {documentoArquivar.original_name || documentoArquivar.file_name || "Documento sem nome"}
+                {documentoExcluir.original_name || documentoExcluir.file_name || "Documento sem nome"}
+              </p>
+              <p className="mt-2 text-xs font-bold leading-5 text-red-700">
+                Esta ação remove o documento da tabela de documentos e registra a exclusão na auditoria.
               </p>
             </div>
 
             <label className="grid gap-2">
               <span className="text-sm font-black text-blue-950">
-                Motivo do arquivamento
+                Motivo da exclusão
               </span>
               <textarea
                 name="motivo"
                 required
                 rows={4}
-                placeholder="Descreva o motivo do arquivamento."
+                placeholder="Descreva o motivo da exclusão."
                 className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-semibold outline-none focus:border-blue-500"
               />
             </label>
@@ -343,8 +376,8 @@ export function DocumentosWorkspace({
               type="submit"
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-5 py-3 font-black text-white hover:bg-red-700"
             >
-              <Archive className="h-5 w-5" />
-              Confirmar arquivamento
+              <Trash2 className="h-5 w-5" />
+              Confirmar exclusão
             </button>
           </form>
         ) : null}
@@ -367,9 +400,8 @@ export function DocumentosWorkspace({
             estagiário ou contrato.
           </p>
           <p>
-            Use <strong>Arquivar</strong> quando um documento não deve mais
-            aparecer na lista principal. O registro continua disponível no
-            histórico.
+            Use <strong>Excluir</strong> quando um documento precisar ser removido
+            da base do sistema. A ação fica registrada na auditoria.
           </p>
         </div>
       </Modal>

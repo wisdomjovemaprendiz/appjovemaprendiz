@@ -18,10 +18,13 @@ export type AppProfile = {
   updated_at: string;
 };
 
-export function homeForRole(role: AppRole) {
-  if (role === "empresa") return "/empresa";
-  if (role === "estagiario") return "/estagiario";
-  return "/rh";
+export function isRhRole(role: string | null | undefined) {
+  return role === "rh_master" || role === "rh_operador";
+}
+
+export function homeForRole(role: AppRole | string) {
+  if (role === "rh_master" || role === "rh_operador") return "/rh";
+  return "/login?erro=portal_desativado";
 }
 
 export async function createSupabaseServerAuthClient() {

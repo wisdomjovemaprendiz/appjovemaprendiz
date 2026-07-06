@@ -5,6 +5,11 @@ import { getCurrentProfile } from "@/lib/supabase/server-auth";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function publicLandingMediaUrl(fileId: string | null | undefined) {
+  if (!fileId) return null;
+  return `/api/public/landing-media?file_id=${encodeURIComponent(fileId)}`;
+}
+
 async function requireRh() {
   const { user, profile } = await getCurrentProfile();
 

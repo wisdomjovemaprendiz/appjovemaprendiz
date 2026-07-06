@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FileText, Save } from "lucide-react";
 import { useState, useTransition } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, type Resolver } from "react-hook-form";
 import { createContratoAction } from "@/actions/rh/contrato.actions";
 import { FormField, SelectInput, TextAreaInput, TextInput } from "@/components/ui/FormControls";
 import { contratoSchema, type ContratoFormData } from "@/schemas/rh.schemas";
@@ -25,7 +25,7 @@ export function ContratoForm({
     reset,
     formState: { errors },
   } = useForm<ContratoFormData>({
-    resolver: zodResolver(contratoSchema),
+    resolver: zodResolver(contratoSchema) as Resolver<ContratoFormData>,
     defaultValues: {
       student_id: "",
       company_id: "",

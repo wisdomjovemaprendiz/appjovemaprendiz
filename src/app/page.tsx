@@ -1,8 +1,5 @@
-import { getLandingPublicData } from "@/data/rh/landing.data";
-import { PublicLandingPage } from "@/features/public/PublicLandingPage";
+import { redirect } from "next/navigation";
 
-export default async function HomePage() {
-  const data = await getLandingPublicData();
-
-  return <PublicLandingPage data={data} />;
+export default function HomePage() {
+  redirect("/rh");
 }

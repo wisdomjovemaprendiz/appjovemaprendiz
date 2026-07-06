@@ -1,5 +1,6 @@
-"use client";
+﻿"use client";
 
+import { useState } from "react";
 import type { ContratoPadraoData } from "@/data/rh/contrato-padrao.data";
 import { ArrowLeft, Printer } from "lucide-react";
 import Link from "next/link";
@@ -13,6 +14,89 @@ function Field({
   value: string | null | undefined;
   className?: string;
 }) {
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+  async function handlePrintContract() {
+    if (isGeneratingPdf) return;
+
+    setIsGeneratingPdf(true);
+
+    try {
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+
+      const pages = Array.from(
+        document.querySelectorAll<HTMLElement>(".contract-paper")
+      );
+
+      if (pages.length === 0) {
+        window.print();
+        return;
+      }
+
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+        compress: true,
+      });
+
+      for (const [index, page] of pages.entries()) {
+        const canvas = await html2canvas(page, {
+          scale: 2,
+          backgroundColor: "#ffffff",
+          useCORS: true,
+          allowTaint: false,
+          logging: false,
+          imageTimeout: 15000,
+          windowWidth: page.scrollWidth,
+          windowHeight: page.scrollHeight,
+        });
+
+        const imageData = canvas.toDataURL("image/jpeg", 0.98);
+
+        if (index > 0) {
+          pdf.addPage("a4", "portrait");
+        }
+
+        pdf.addImage(imageData, "JPEG", 0, 0, 210, 297);
+      }
+
+      const blob = pdf.output("blob");
+      const url = URL.createObjectURL(blob);
+
+      const iframe = document.createElement("iframe");
+      iframe.style.position = "fixed";
+      iframe.style.right = "0";
+      iframe.style.bottom = "0";
+      iframe.style.width = "0";
+      iframe.style.height = "0";
+      iframe.style.border = "0";
+      iframe.src = url;
+
+      iframe.onload = () => {
+        setTimeout(() => {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+
+          setTimeout(() => {
+            iframe.remove();
+            URL.revokeObjectURL(url);
+          }, 60000);
+        }, 600);
+      };
+
+      document.body.appendChild(iframe);
+    } catch (error) {
+      console.error("Erro ao gerar PDF do contrato:", error);
+      window.print();
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  }
+
   return (
     <span className={className}>
       <strong>{label}</strong> {value || ""}
@@ -98,26 +182,10 @@ function ContractStyles() {
         margin-top: 4mm;
       }
 
-      .contract-text p {
-        text-align: justify;
-      }
-
       .contract-clause-title {
         font-size: 12pt;
         font-weight: 400;
         letter-spacing: 0.01em;
-      }
-
-      .contract-row {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 4mm;
-      }
-
-      .contract-row-3 {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 4mm;
       }
 
       .contract-row-student {
@@ -175,21 +243,29 @@ function ContractStyles() {
         object-fit: contain;
       }
 
-      .print-break {
-        page-break-after: always;
-      }
-
       @media print {
         @page {
           size: A4;
-          margin: 14mm 15mm;
+          margin: 0;
+        }
+
+        * {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
         }
 
         html,
         body {
-          background: white !important;
+          width: 210mm !important;
+          height: auto !important;
           margin: 0 !important;
           padding: 0 !important;
+          background: white !important;
+          overflow: visible !important;
+        }
+
+        body {
+          font-size: 0 !important;
         }
 
         aside,
@@ -207,24 +283,117 @@ function ContractStyles() {
 
         main,
         .contract-print-root {
+          width: 210mm !important;
           background: white !important;
           padding: 0 !important;
           margin: 0 !important;
-          min-height: auto !important;
+          min-height: 0 !important;
         }
 
         .contract-paper {
-          width: auto !important;
-          min-height: auto !important;
+          display: block !important;
+          width: 210mm !important;
+          height: 297mm !important;
+          min-height: 297mm !important;
+          max-height: 297mm !important;
           margin: 0 !important;
-          padding: 0 !important;
+          padding: 9mm 11mm 7mm 11mm !important;
           box-shadow: none !important;
-          overflow: visible !important;
-          page-break-after: always;
+          overflow: hidden !important;
+          box-sizing: border-box !important;
+          page-break-after: always !important;
+          break-after: page !important;
+          page-break-inside: avoid !important;
+          break-inside: avoid-page !important;
+          font-size: 8.7pt !important;
+          line-height: 1.01 !important;
         }
 
         .contract-paper:last-child {
-          page-break-after: auto;
+          page-break-after: auto !important;
+          break-after: auto !important;
+        }
+
+        .contract-header {
+          grid-template-columns: 1fr 48mm !important;
+          gap: 6mm !important;
+        }
+
+        .contract-title {
+          margin-top: 3mm !important;
+        }
+
+        .contract-title h1 {
+          font-size: 14pt !important;
+          line-height: 1.05 !important;
+        }
+
+        .contract-title p {
+          margin: 0.5mm 0 0 22mm !important;
+          font-size: 8.8pt !important;
+        }
+
+        .contract-logo {
+          width: 48mm !important;
+          max-height: 20mm !important;
+        }
+
+        .contract-block {
+          margin-top: 2.25mm !important;
+        }
+
+        .contract-text {
+          margin-top: 2.3mm !important;
+        }
+
+        .contract-block p,
+        .contract-text p {
+          margin: 0 0 0.45mm 0 !important;
+          text-align: justify !important;
+        }
+
+        .contract-clause-title {
+          font-size: 9.9pt !important;
+          line-height: 1 !important;
+        }
+
+        .contract-row-student,
+        .contract-student-course {
+          gap: 2.5mm !important;
+        }
+
+        .signature-table {
+          margin-top: 3.2mm !important;
+          font-size: 8.4pt !important;
+        }
+
+        .signature-table td {
+          padding: 0.9mm 1.4mm !important;
+          height: 15mm !important;
+        }
+
+        .signature-table .short {
+          height: 12.5mm !important;
+        }
+
+        .signature-table .agent {
+          height: 14.5mm !important;
+        }
+
+        .signature-title {
+          font-size: 8.7pt !important;
+        }
+
+        .signature-line {
+          margin-top: 1.1mm !important;
+          white-space: nowrap !important;
+        }
+
+        .agent-signature {
+          right: 12mm !important;
+          bottom: -1mm !important;
+          max-width: 32mm !important;
+          max-height: 14mm !important;
         }
 
         a {
@@ -531,6 +700,91 @@ export function ContratoPadraoPrintClient({
 }: {
   data: ContratoPadraoData;
 }) {
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+  async function handlePrintContract() {
+    if (isGeneratingPdf) return;
+
+    setIsGeneratingPdf(true);
+
+    try {
+      const [{ default: html2canvas }, jspdfModule] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+
+      const { jsPDF } = jspdfModule;
+
+      const pages = Array.from(
+        document.querySelectorAll<HTMLElement>(".contract-paper")
+      );
+
+      if (pages.length === 0) {
+        window.print();
+        return;
+      }
+
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+        compress: true,
+      });
+
+      for (const [index, page] of pages.entries()) {
+        const canvas = await html2canvas(page, {
+          scale: 2,
+          backgroundColor: "#ffffff",
+          useCORS: true,
+          allowTaint: false,
+          logging: false,
+          imageTimeout: 15000,
+          windowWidth: page.scrollWidth,
+          windowHeight: page.scrollHeight,
+        });
+
+        const imageData = canvas.toDataURL("image/jpeg", 0.98);
+
+        if (index > 0) {
+          pdf.addPage("a4", "portrait");
+        }
+
+        pdf.addImage(imageData, "JPEG", 0, 0, 210, 297);
+      }
+
+      const blob = pdf.output("blob");
+      const url = URL.createObjectURL(blob);
+
+      const iframe = document.createElement("iframe");
+      iframe.style.position = "fixed";
+      iframe.style.right = "0";
+      iframe.style.bottom = "0";
+      iframe.style.width = "0";
+      iframe.style.height = "0";
+      iframe.style.border = "0";
+      iframe.src = url;
+
+      iframe.onload = () => {
+        setTimeout(() => {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+
+          setTimeout(() => {
+            iframe.remove();
+            URL.revokeObjectURL(url);
+          }, 60000);
+        }, 600);
+      };
+
+      document.body.appendChild(iframe);
+    } catch (error) {
+      console.error("Erro ao gerar PDF do contrato:", error);
+      window.print();
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  }
+
   return (
     <div className="contract-print-root">
       <ContractStyles />
@@ -546,11 +800,12 @@ export function ContratoPadraoPrintClient({
 
         <button
           type="button"
-          onClick={() => window.print()}
-          className="btn-wisdom-red inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-black"
+          onClick={handlePrintContract}
+          disabled={isGeneratingPdf}
+          className="btn-wisdom-red inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-black disabled:cursor-not-allowed disabled:opacity-70"
         >
           <Printer className="h-4 w-4" />
-          Imprimir contrato
+          {isGeneratingPdf ? "Preparando impressão..." : "Imprimir contrato"}
         </button>
       </div>
 

@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { GraduationCap, MapPin, Save } from "lucide-react";
 import { useState, useTransition } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, type Resolver } from "react-hook-form";
 import { createEstagiarioAction, updateEstagiarioAction } from "@/actions/rh/estagiario.actions";
 import { FormField, SelectInput, TextAreaInput, TextInput } from "@/components/ui/FormControls";
 import { SkillPicker } from "@/components/ui/SkillPicker";
@@ -41,7 +41,7 @@ export function EstagiarioForm({ estagiarioId, initialData }: EstagiarioFormProp
     watch,
     formState: { errors },
   } = useForm<EstagiarioFormData>({
-    resolver: zodResolver(estagiarioSchema),
+    resolver: zodResolver(estagiarioSchema) as Resolver<EstagiarioFormData>,
     defaultValues: {
       nome: initialData?.nome ?? "",
       data_nascimento: initialData?.data_nascimento ?? "",

@@ -28,6 +28,12 @@ function onlyDigits(value: string | null | undefined) {
   return String(value || "").replace(/\D/g, "");
 }
 
+type FinanceiroCompanyLookup = {
+  cnpj: string | null;
+  razao_social: string | null;
+  nome_fantasia: string | null;
+};
+
 function calculateDiscountedValue({
   valor,
   descontoTipo,
@@ -69,6 +75,7 @@ export async function criarCarneAction(formData: FormData): Promise<ActionResult
   const quantidadeParcelas = Number(formData.get("quantidade_parcelas") ?? 1);
   const valorParcela = parseMoney(formData.get("valor_parcela"));
   const vencimentoPrimeira = emptyToNull(formData.get("vencimento_primeira"));
+  const vencimentoPrimeiraTexto = String(vencimentoPrimeira ?? "").trim();
   const descontoTipo = emptyToNull(formData.get("desconto_tipo")) || "nenhum";
   const descontoValor = parseMoney(formData.get("desconto_valor"));
   const instrucoesPagamento =
@@ -139,17 +146,17 @@ export async function criarCarneAction(formData: FormData): Promise<ActionResult
   }
 
   const year = new Date().getFullYear();
-  const companyCode = onlyDigits(company?.cnpj).slice(-6) || companyId.slice(0, 6).toUpperCase();
+  const companyCode = onlyDigits((company as FinanceiroCompanyLookup | null)?.cnpj).slice(-6) || String(companyId).slice(0, 6).toUpperCase();
   const bookletCode = booklet.id.slice(0, 6).toUpperCase();
 
   const parcelas = Array.from({ length: quantidadeParcelas }).map((_, index) => {
     const parcelaNumero = index + 1;
-    const vencimento = addMonths(vencimentoPrimeira, index);
+    const vencimento = addMonths(vencimentoPrimeiraTexto, index);
     const numeroControle = `CW-${year}-${companyCode}-${bookletCode}-${String(parcelaNumero).padStart(2, "0")}`;
     const valorComDesconto = calculateDiscountedValue({
-      valor: valorParcela,
-      descontoTipo,
-      descontoValor,
+      valor: Number(valorParcela || 0),
+      descontoTipo: String(descontoTipo || ""),
+      descontoValor: Number(descontoValor || 0),
     });
 
     return {
@@ -396,9 +403,9 @@ export async function editarParcelaFinanceiraAction(formData: FormData): Promise
   }
 
   const valorComDesconto = calculateDiscountedValue({
-    valor,
-    descontoTipo,
-    descontoValor,
+    valor: Number(valor || 0),
+    descontoTipo: String(descontoTipo || ""),
+    descontoValor: Number(descontoValor || 0),
   });
 
   const payload = {
@@ -638,6 +645,138 @@ export async function cancelarCarneFinanceiroAction(formData: FormData): Promise
   };
 }
 
+export async function excluirCarneFinanceiroAction(formData: FormData): Promise<ActionResult> {
+  const supabase = getSupabaseAdminClient();
+
+  if (!supabase) {
+    return {
+      ok: false,
+      message: supabaseConfigMissingMessage(),
+    };
+  }
+
+  const id = String(formData.get("id") ?? "");
+  const motivo = String(formData.get("motivo") ?? "").trim();
+
+  if (!id) {
+    return {
+      ok: false,
+      message: "Carnê não informado.",
+    };
+  }
+
+  if (!motivo) {
+    return {
+      ok: false,
+      message: "Informe o motivo da exclusão.",
+    };
+  }
+
+  const { data: carneAnterior } = await supabase
+    .from("payment_booklets")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!carneAnterior) {
+    return {
+      ok: false,
+      message: "Carnê não localizado.",
+    };
+  }
+
+  const { data: parcelasAnteriores, error: parcelasFindError } = await supabase
+    .from("financial_charges")
+    .select("*")
+    .eq("booklet_id", id);
+
+  if (parcelasFindError) {
+    return {
+      ok: false,
+      message: "Erro ao consultar parcelas do carnê: " + parcelasFindError.message,
+    };
+  }
+
+  const parcelas = parcelasAnteriores ?? [];
+  const temParcelaPaga = parcelas.some((parcela) =>
+    parcela.status === "pago" ||
+    Boolean(parcela.data_pagamento) ||
+    Number(parcela.valor_pago ?? 0) > 0
+  );
+
+  if (temParcelaPaga) {
+    return {
+      ok: false,
+      message: "Este carnê possui parcela paga ou baixada. Para preservar o histórico financeiro, use a opção Cancelar em vez de Excluir.",
+    };
+  }
+
+  const now = new Date().toISOString();
+  const marker = "[EXCLUIDO_DA_LISTA]";
+  const motivoAuditado = marker + " " + motivo;
+
+  const payloadCarne = {
+    status: "cancelado",
+    motivo_cancelamento: motivoAuditado,
+    cancelado_em: now,
+  };
+
+  const payloadParcelas = {
+    status: "cancelado",
+    motivo_cancelamento: motivoAuditado,
+    cancelado_em: now,
+  };
+
+  const { error: carneError } = await supabase
+    .from("payment_booklets")
+    .update(payloadCarne)
+    .eq("id", id);
+
+  if (carneError) {
+    return {
+      ok: false,
+      message: "Erro ao excluir carnê da lista: " + carneError.message,
+    };
+  }
+
+  const { error: parcelasError } = await supabase
+    .from("financial_charges")
+    .update(payloadParcelas)
+    .eq("booklet_id", id);
+
+  if (parcelasError) {
+    return {
+      ok: false,
+      message: "Carnê removido da lista, mas houve erro ao remover as parcelas da fila: " + parcelasError.message,
+    };
+  }
+
+  await supabase.from("audit_logs").insert({
+    acao: "excluiu_carne_da_lista",
+    tabela: "payment_booklets",
+    entity_type: "financeiro",
+    entity_id: id,
+    valor_anterior: {
+      carne: carneAnterior,
+      parcelas,
+    },
+    valor_novo: {
+      carne: payloadCarne,
+      parcelas: payloadParcelas,
+    },
+    motivo,
+  });
+
+  revalidatePath("/rh/financeiro");
+  revalidatePath("/rh");
+
+  return {
+    ok: true,
+    id,
+    message: "Carnê excluído da lista com sucesso.",
+  };
+}
+
 export async function estornarBaixaFinanceiraAction(formData: FormData): Promise<ActionResult> {
   const supabase = getSupabaseAdminClient();
 
@@ -737,3 +876,10 @@ export async function estornarBaixaFinanceiraAction(formData: FormData): Promise
     message: "Baixa estornada com sucesso.",
   };
 }
+
+/**
+ * Compatibilidade temporária:
+ * Algumas telas antigas ainda importam criarCobrancaAction.
+ * A ação oficial atual é criarCarneAction.
+ */
+export const criarCobrancaAction = criarCarneAction;

@@ -57,7 +57,7 @@ export function EmpresaForm({
     const field = formRef.current?.elements.namedItem(name);
 
     if (field && "value" in field) {
-      (field as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement).value = value || "";
+      (field as unknown as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement).value = value || "";
     }
   }
 
@@ -65,7 +65,7 @@ export function EmpresaForm({
     const field = formRef.current?.elements.namedItem(name);
 
     if (field && "value" in field) {
-      return String((field as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement).value || "");
+      return String((field as unknown as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement).value || "");
     }
 
     return "";

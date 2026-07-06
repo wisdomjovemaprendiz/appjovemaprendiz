@@ -10,7 +10,6 @@ import {
   Building2,
   FileText,
   GraduationCap,
-  Home,
   LayoutDashboard,
   LockKeyhole,
   ScrollText,
@@ -33,11 +32,18 @@ const menu = [
   { href: "/rh/relatorios", label: "Relatórios", icon: BarChart3 },
   { href: "/rh/auditoria", label: "Auditoria", icon: Activity },
   { href: "/rh/usuarios", label: "Usuários", icon: LockKeyhole },
-  { href: "/rh/landing", label: "Landing Page", icon: Home },
   { href: "/rh/configuracoes", label: "Configurações", icon: Settings },
 ];
 
-export function RhShell({ children }: { children: ReactNode }) {
+export function RhShell({
+  children,
+  organizationLogoUrl,
+  organizationName,
+}: {
+  children: ReactNode;
+  organizationLogoUrl?: string | null;
+  organizationName?: string | null;
+}) {
   const pathname = usePathname();
 
   return (
@@ -45,18 +51,36 @@ export function RhShell({ children }: { children: ReactNode }) {
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 border-r border-slate-200 bg-white xl:block">
         <div className="flex h-full flex-col">
           <div className="border-b border-slate-100 p-6">
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-700">
-                <ShieldCheck className="h-7 w-7 text-white" />
-              </div>
+            {organizationLogoUrl ? (
+              <div className="rounded-3xl border border-slate-100 bg-white p-3 shadow-sm">
+                <div className="flex h-16 items-center justify-center">
+                  <img
+                    src={organizationLogoUrl}
+                    alt={organizationName || "Logomarca do sistema"}
+                    className="max-h-14 max-w-[210px] object-contain"
+                  />
+                </div>
 
-              <div>
-                <p className="text-lg font-black text-blue-950">RH Wisdom</p>
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-red-600">
+                <p className="mt-2 text-center text-[11px] font-black uppercase tracking-[0.18em] text-red-600">
                   Gestão de estágios
                 </p>
               </div>
-            </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-700">
+                  <ShieldCheck className="h-7 w-7 text-white" />
+                </div>
+
+                <div className="min-w-0">
+                  <p className="truncate text-lg font-black text-blue-950">
+                    {organizationName || "RH Wisdom"}
+                  </p>
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-red-600">
+                    Gestão de estágios
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           <nav className="flex-1 space-y-1 overflow-y-auto p-4">
@@ -64,17 +88,18 @@ export function RhShell({ children }: { children: ReactNode }) {
               const Icon = item.icon;
               const active =
                 pathname === item.href ||
-                (item.href !== "/rh" && pathname.startsWith(`${item.href}/`));
+                (item.href !== "/rh" && pathname.startsWith(item.href + "/"));
 
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-black transition ${
-                    active
+                  className={
+                    "flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-black transition " +
+                    (active
                       ? "bg-blue-700 text-white shadow-sm"
-                      : "text-slate-600 hover:bg-slate-100 hover:text-blue-950"
-                  }`}
+                      : "text-slate-600 hover:bg-slate-100 hover:text-blue-950")
+                  }
                 >
                   <Icon className="h-5 w-5" />
                   {item.label}
@@ -87,7 +112,7 @@ export function RhShell({ children }: { children: ReactNode }) {
             <div className="rounded-2xl bg-slate-50 p-4">
               <p className="text-sm font-black text-blue-950">Ambiente seguro</p>
               <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
-                Rotas protegidas, perfis de acesso e auditoria de ações.
+                Sistema interno com rotas protegidas, perfis de acesso e auditoria de ações.
               </p>
             </div>
           </div>
@@ -113,6 +138,7 @@ export function PageHeader({
   action?: ReactNode;
 }) {
   const pathname = usePathname();
+
   return (
     <header className="border-b border-slate-200 bg-white">
       <div className="mx-auto flex max-w-7xl flex-col gap-5 px-6 py-8 lg:flex-row lg:items-center lg:justify-between">
@@ -143,19 +169,18 @@ export function PageHeader({
             const Icon = item.icon;
             const active =
               pathname === item.href ||
-              (item.href !== "/rh" && pathname.startsWith(`${item.href}/`));
+              (item.href !== "/rh" && pathname.startsWith(item.href + "/"));
 
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`inline-flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-xs font-black ${
-                  active
-                    ? "bg-blue-700 text-white"
-                    : "bg-white text-blue-950"
-                }`}
+                className={
+                  "inline-flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-xs font-black " +
+                  (active ? "bg-blue-700 text-white" : "bg-white text-blue-950")
+                }
               >
-                <Icon className="h-4 w-4 text-blue-700" />
+                <Icon className={active ? "h-4 w-4 text-white" : "h-4 w-4 text-blue-700"} />
                 {item.label}
               </Link>
             );
@@ -165,7 +190,6 @@ export function PageHeader({
     </header>
   );
 }
-
 
 export function StatusBadge({
   children,
@@ -183,7 +207,7 @@ export function StatusBadge({
   }[tone];
 
   return (
-    <span className={`rounded-full border px-3 py-1 text-xs font-black ${classes}`}>
+    <span className={"rounded-full border px-3 py-1 text-xs font-black " + classes}>
       {children}
     </span>
   );

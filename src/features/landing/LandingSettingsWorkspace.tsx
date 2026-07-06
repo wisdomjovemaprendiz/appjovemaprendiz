@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import type { LandingMedia, LandingSettings, LandingUpdate } from "@/data/rh/landing.data";
 import {
@@ -10,11 +10,20 @@ import {
   Loader2,
   PlayCircle,
   Save,
+  Trash2,
   UploadCloud,
 } from "lucide-react";
 import { FormEvent, useMemo, useState } from "react";
 
 type Tab = "conteudo" | "links" | "video" | "imagens" | "atualizacoes" | "preview";
+
+type LandingMediaWithDocument = LandingMedia & {
+  document_id?: string | null;
+  image_url?: string | null;
+  public_url?: string | null;
+  web_view_link?: string | null;
+  drive_web_view_link?: string | null;
+};
 
 function messageClass(ok: boolean) {
   return ok
@@ -79,6 +88,7 @@ export function LandingSettingsWorkspace({
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [mediaActionId, setMediaActionId] = useState<string | null>(null);
 
   const activeMedia = useMemo(
     () => media.filter((item) => item.status === "ativo"),
@@ -140,7 +150,7 @@ export function LandingSettingsWorkspace({
 
       if (result.ok) {
         setMedia((current) => [result.data, ...current]);
-        event.currentTarget.reset();
+        (event.currentTarget as HTMLFormElement | null)?.reset?.();
       }
     } catch (error) {
       setMessage({
@@ -174,7 +184,7 @@ export function LandingSettingsWorkspace({
 
       if (result.ok) {
         setUpdates((current) => [result.data, ...current]);
-        event.currentTarget.reset();
+        (event.currentTarget as HTMLFormElement | null)?.reset?.();
       }
     } catch (error) {
       setMessage({
@@ -185,25 +195,131 @@ export function LandingSettingsWorkspace({
       setSaving(false);
     }
   }
+  function getMediaDocumentId(item: LandingMedia) {
+    const mediaItem = item as LandingMediaWithDocument;
+    return String(mediaItem.document_id || item.id);
+  }
 
-  async function updateMedia(id: string, payload: Record<string, unknown>) {
+  function getMediaPreviewUrl(item: LandingMedia) {
+    const mediaItem = item as LandingMediaWithDocument;
+    return mediaItem.public_url || mediaItem.image_url || null;
+  }
+
+  function getMediaOpenUrl(item: LandingMedia) {
+    const mediaItem = item as LandingMediaWithDocument;
+    return mediaItem.web_view_link || mediaItem.drive_web_view_link || getMediaPreviewUrl(item);
+  }
+
+  async function archiveMedia(item: LandingMedia) {
+    const mediaItem = item as any;
+    const documentId = getMediaDocumentId(item);
+    const landingMediaId = String(item.id);
+
+    const confirmed = window.confirm("Deseja arquivar esta foto da landing? Ela deixará de aparecer na galeria pública.");
+    if (!confirmed) return;
+
+    setMediaActionId(landingMediaId);
     setMessage(null);
 
-    const response = await fetch("/api/rh/landing/media", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, ...payload }),
-    });
+    try {
+      const response = await fetch("/api/rh/landing/media-manage", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: landingMediaId,
+          landing_media_id: landingMediaId,
+          document_id: documentId,
+          drive_file_id: mediaItem.drive_file_id || null,
+          motivo: "Foto arquivada pelo card da aba Fotos da Landing Page.",
+        }),
+      });
 
-    const result = await response.json();
+      const result = await response.json().catch(() => ({}));
 
-    setMessage({
-      ok: Boolean(result.ok),
-      text: result.message || "Resposta recebida.",
-    });
+      setMessage({
+        ok: Boolean(result.ok),
+        text: result.message || "Resposta recebida.",
+      });
 
-    if (result.ok) {
-      setMedia((current) => current.map((item) => (item.id === id ? result.data : item)));
+      if (result.ok) {
+        setMedia((current) =>
+          current.filter((currentItem) => {
+            const currentDocumentId = getMediaDocumentId(currentItem);
+            return currentItem.id !== landingMediaId && currentDocumentId !== documentId;
+          })
+        );
+      }
+    } catch (error) {
+      setMessage({
+        ok: false,
+        text: error instanceof Error ? error.message : "Erro inesperado ao arquivar imagem.",
+      });
+    } finally {
+      setMediaActionId(null);
+    }
+  }
+
+  async function deleteMedia(item: LandingMedia) {
+    const mediaItem = item as any;
+    const documentId = getMediaDocumentId(item);
+    const landingMediaId = String(item.id);
+    const title = item.title || item.original_name || "Imagem sem título";
+
+    const confirmed = window.confirm(
+      `Deseja realmente excluir esta foto?\n\n${title}\n\nEla será removida da landing e o arquivo será enviado para a lixeira do Google Drive quando possível.`
+    );
+
+    if (!confirmed) return;
+
+    const confirmText = window.prompt("Para confirmar a exclusão definitiva, digite EXCLUIR.");
+
+    if (confirmText !== "EXCLUIR") {
+      setMessage({
+        ok: false,
+        text: "Exclusão cancelada. Para excluir, é necessário digitar EXCLUIR.",
+      });
+      return;
+    }
+
+    setMediaActionId(landingMediaId);
+    setMessage(null);
+
+    try {
+      const response = await fetch("/api/rh/landing/media-manage", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: landingMediaId,
+          landing_media_id: landingMediaId,
+          document_id: documentId,
+          drive_file_id: mediaItem.drive_file_id || null,
+          confirm_text: "EXCLUIR",
+          motivo: "Foto excluída definitivamente pelo card da aba Fotos da Landing Page.",
+        }),
+      });
+
+      const result = await response.json().catch(() => ({}));
+
+      setMessage({
+        ok: Boolean(result.ok),
+        text: result.message || "Resposta recebida.",
+      });
+
+      if (result.ok) {
+        setMedia((current) =>
+          current.filter((currentItem) => {
+            const currentDocumentId = getMediaDocumentId(currentItem);
+            return currentItem.id !== landingMediaId && currentDocumentId !== documentId;
+          })
+        );
+      }
+    } catch (error) {
+      setMessage({
+        ok: false,
+        text: error instanceof Error ? error.message : "Erro inesperado ao excluir imagem.",
+      });
+    } finally {
+      setMediaActionId(null);
     }
   }
 
@@ -488,60 +604,99 @@ export function LandingSettingsWorkspace({
               </button>
             </div>
           </form>
-
           <section className="rounded-3xl bg-white p-7 shadow-sm">
-            <h2 className="text-2xl font-black text-blue-950">Fotos cadastradas</h2>
-            <p className="mt-1 text-sm font-semibold text-slate-500">Fotos ativas aparecem na landing pública.</p>
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <h2 className="text-2xl font-black text-blue-950">Fotos cadastradas</h2>
+                <p className="mt-1 text-sm font-semibold text-slate-500">
+                  Cada card possui ações próprias: abrir, arquivar e excluir usando o ID real do documento.
+                </p>
+              </div>
 
-            {media.length === 0 ? (
+              <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-black text-blue-900">
+                {activeMedia.length} {activeMedia.length === 1 ? "foto cadastrada" : "fotos cadastradas"}
+              </div>
+            </div>
+
+            {activeMedia.length === 0 ? (
               <div className="mt-6 rounded-2xl border border-dashed border-blue-200 bg-blue-50 p-8 text-center">
                 <ImagePlus className="mx-auto h-10 w-10 text-blue-700" />
                 <p className="mt-3 font-black text-blue-950">Nenhuma foto cadastrada.</p>
               </div>
             ) : (
               <div className="mt-6 grid gap-4 md:grid-cols-2">
-                {media.map((item) => (
-                  <div key={item.id} className="overflow-hidden rounded-2xl border border-slate-100 bg-slate-50">
-                    {item.public_url ? (
-                      <img src={item.public_url} alt={item.title || item.original_name || "Imagem"} className="h-44 w-full object-cover" />
-                    ) : (
-                      <div className="flex h-44 items-center justify-center bg-slate-200 text-sm font-black text-slate-500">Sem preview</div>
-                    )}
+                {activeMedia.map((item) => {
+                  const documentId = getMediaDocumentId(item);
+                  const previewUrl = getMediaPreviewUrl(item) ? `${getMediaPreviewUrl(item)}&v=${encodeURIComponent(String(item.updated_at || item.created_at || item.id))}` : null;
+                  const openUrl = getMediaOpenUrl(item);
+                  const title = item.title || item.original_name || "Imagem sem título";
+                  const isBusy = mediaActionId === String(item.id) || mediaActionId === documentId;
+                  const isActive = item.status === "ativo";
 
-                    <div className="p-4">
-                      <div className="mb-3 flex items-start justify-between gap-3">
-                        <div>
-                          <p className="font-black text-blue-950">{item.title || item.original_name || "Imagem sem título"}</p>
-                          <p className="mt-1 text-xs font-bold text-slate-500">{categoryLabel(item.category)} • {formatBytes(item.file_size)}</p>
+                  return (
+                    <div key={documentId} className="overflow-hidden rounded-2xl border border-slate-100 bg-slate-50">
+                      {previewUrl ? (
+                        <img src={previewUrl} alt={title} className="h-44 w-full object-cover" />
+                      ) : (
+                        <div className="flex h-44 items-center justify-center bg-slate-200 text-sm font-black text-slate-500">
+                          Sem preview
                         </div>
-                        <span className={`rounded-full border px-3 py-1 text-xs font-black ${item.status === "ativo" ? "border-green-100 bg-green-50 text-green-700" : "border-slate-200 bg-slate-100 text-slate-600"}`}>
-                          {item.status}
-                        </span>
-                      </div>
+                      )}
 
-                      <div className="flex flex-wrap gap-2">
-                        {item.web_view_link ? (
-                          <a href={item.web_view_link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-blue-100 bg-white px-3 py-2 text-xs font-black text-blue-700 hover:bg-blue-50">
-                            <Eye className="h-4 w-4" />
-                            Abrir
-                          </a>
-                        ) : null}
+                      <div className="p-4">
+                        <div className="mb-3 flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-black text-blue-950">{title}</p>
+                            <p className="mt-1 text-xs font-bold text-slate-500">
+                              {categoryLabel(item.category)} • {formatBytes(item.file_size)}
+                            </p>
+                            <p className="mt-1 break-all text-[11px] font-bold text-slate-400">
+                              Documento: {documentId}
+                            </p>
+                          </div>
 
-                        {item.status === "ativo" ? (
-                          <button type="button" onClick={() => updateMedia(item.id, { status: "arquivado" })} className="inline-flex items-center gap-2 rounded-xl border border-red-100 bg-white px-3 py-2 text-xs font-black text-red-700 hover:bg-red-50">
-                            <Archive className="h-4 w-4" />
+                          <span className={`rounded-full border px-3 py-1 text-xs font-black ${isActive ? "border-green-100 bg-green-50 text-green-700" : "border-slate-200 bg-slate-100 text-slate-600"}`}>
+                            {item.status}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2">
+                          {openUrl ? (
+                            <a href={openUrl} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-100 bg-white px-3 py-2 text-xs font-black text-blue-700 hover:bg-blue-50">
+                              <Eye className="h-4 w-4" />
+                              Abrir
+                            </a>
+                          ) : (
+                            <button type="button" disabled className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-400">
+                              <Eye className="h-4 w-4" />
+                              Abrir
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            disabled={isBusy || !isActive}
+                            onClick={() => archiveMedia(item)}
+                            className="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-100 bg-white px-3 py-2 text-xs font-black text-amber-700 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Archive className="h-4 w-4" />}
                             Arquivar
                           </button>
-                        ) : (
-                          <button type="button" onClick={() => updateMedia(item.id, { status: "ativo" })} className="inline-flex items-center gap-2 rounded-xl border border-green-100 bg-white px-3 py-2 text-xs font-black text-green-700 hover:bg-green-50">
-                            <CheckCircle2 className="h-4 w-4" />
-                            Ativar
+
+                          <button
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() => deleteMedia(item)}
+                            className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-100 bg-white px-3 py-2 text-xs font-black text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {isBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                            Excluir
                           </button>
-                        )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </section>
@@ -683,3 +838,5 @@ export function LandingSettingsWorkspace({
     </section>
   );
 }
+
+

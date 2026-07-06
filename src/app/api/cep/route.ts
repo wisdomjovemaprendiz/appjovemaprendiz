@@ -151,7 +151,6 @@ export async function GET(request: Request) {
         ok: true,
         success: true,
         message: "CEP encontrado.",
-        source: "viacep",
 
         // Formato novo
         data: normalized,
@@ -186,7 +185,6 @@ export async function GET(request: Request) {
         ok: true,
         success: true,
         message: "CEP encontrado.",
-        source: "brasilapi",
         data: normalized,
         endereco: normalized,
         ...normalized,
