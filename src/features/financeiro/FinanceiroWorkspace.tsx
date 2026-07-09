@@ -1,6 +1,7 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import {
@@ -152,11 +153,13 @@ function CarnesTable({
   onVerParcelas,
   onCancelar,
   onExcluir,
+  excluindoId,
 }: {
   carnes: PaymentBookletItem[];
   onVerParcelas: (carne: PaymentBookletItem) => void;
   onCancelar: (carne: PaymentBookletItem) => void;
   onExcluir: (carne: PaymentBookletItem) => void;
+  excluindoId?: string | null;
 }) {
   if (carnes.length === 0) {
     return (
@@ -259,11 +262,12 @@ function CarnesTable({
 
               <button
                 type="button"
+                disabled={excluindoId === carne.id}
                 onClick={() => onExcluir(carne)}
-                className="inline-flex h-8 items-center gap-1 rounded-lg border border-red-200 bg-white px-2.5 text-[10px] font-black text-red-700 hover:bg-red-50"
+                className="inline-flex h-8 items-center gap-1 rounded-lg border border-red-200 bg-white px-2.5 text-[10px] font-black text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Trash2 className="h-3.5 w-3.5" />
-                Excluir
+                {excluindoId === carne.id ? "Excluindo..." : "Excluir"}
               </button>
             </div>
           </div>
@@ -1031,6 +1035,25 @@ export function FinanceiroWorkspace({
         ) : null}
       </Modal>
 
+
+      <Modal
+        open={Boolean(excluirCarne)}
+        onClose={() => setExcluirCarne(null)}
+        title="Excluir carnê"
+        description="O carnê será removido da lista. Só é permitido excluir carnês sem parcelas pagas ou baixadas."
+        size="md"
+      >
+        {excluirCarne ? (
+          <MotivoForm
+            action={excluirCarneFinanceiroAction}
+            id={excluirCarne.id}
+            title={excluirCarne.titulo || "Carnê"}
+            description={excluirCarne.company_name}
+            button="Excluir carnê da lista"
+            tone="danger"
+          />
+        ) : null}
+      </Modal>
       <Modal
         open={Boolean(estornarParcela)}
         onClose={() => setEstornarParcela(null)}

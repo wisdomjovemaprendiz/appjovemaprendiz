@@ -1,66 +1,115 @@
-import { LoginForm } from "@/features/auth/LoginForm";
-import { ShieldCheck } from "lucide-react";
+import { getConfiguracoesData } from "@/data/rh/configuracoes.data";
+import { LoginFormClient } from "@/features/auth/LoginFormClient";
 
-type LoginPageProps = {
-  searchParams?: Promise<{
-    erro?: string;
-    next?: string;
-  }>;
-};
+type SearchParams = Record<string, string | string[] | undefined>;
 
-export default async function LoginPage({ searchParams }: LoginPageProps) {
+function firstValue(value: string | string[] | undefined) {
+  if (Array.isArray(value)) {
+    return value[0] || "";
+  }
+
+  return value || "";
+}
+
+function findOrganizationName(source: unknown): string | null {
+  if (!source || typeof source !== "object") {
+    return null;
+  }
+
+  const object = source as Record<string, unknown>;
+
+  const priorityKeys = [
+    "organizationName",
+    "organization_name",
+    "nome_fantasia",
+    "razao_social",
+    "nome",
+    "name",
+  ];
+
+  for (const key of priorityKeys) {
+    const value = object[key];
+
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  for (const value of Object.values(object)) {
+    const found = findOrganizationName(value);
+
+    if (found) {
+      return found;
+    }
+  }
+
+  return null;
+}
+
+function loginErrorMessage(errorCode: string) {
+  if (!errorCode) {
+    return null;
+  }
+
+  if (errorCode === "portal_desativado") {
+    return "Nesta fase, somente o acesso interno do RH está liberado.";
+  }
+
+  return "E-mail ou senha inválidos.";
+}
+
+function loginSuccessMessage(messageCode: string) {
+  if (messageCode === "senha_atualizada") {
+    return "Senha redefinida com sucesso. Entre com a nova senha.";
+  }
+
+  return null;
+}
+
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams?: Promise<SearchParams>;
+}) {
   const params = searchParams ? await searchParams : {};
-  const portalDisabled = params.erro === "portal_desativado";
+  const errorMessage = loginErrorMessage(firstValue(params.erro));
+  const successMessage = loginSuccessMessage(firstValue(params.mensagem));
+
+  const configuracoes = await getConfiguracoesData().catch(() => null);
+  const organizationName =
+    findOrganizationName(configuracoes) || "Sistema RH Wisdom";
+
+  const logoUrl = "/api/public/organization-logo";
 
   return (
-    <main className="min-h-screen bg-slate-100 px-6 py-10">
-      <section className="mx-auto grid min-h-[calc(100vh-80px)] max-w-6xl items-center gap-8 lg:grid-cols-[1fr_480px]">
-        <div>
-          <div className="mb-6 inline-flex rounded-2xl bg-white p-4 shadow-sm">
-            <ShieldCheck className="h-10 w-10 text-blue-700" />
-          </div>
+    <main className="min-h-screen bg-white">
+      <div className="mx-auto grid min-h-screen max-w-7xl items-center gap-14 px-6 py-10 lg:grid-cols-[1fr_460px]">
+        <section className="flex flex-col items-start">
+          <img
+            src={logoUrl}
+            alt={`Logo ${organizationName}`}
+            className="mb-10 h-auto w-[280px] max-w-full object-contain"
+          />
 
-          <h1 className="max-w-2xl text-4xl font-black tracking-tight text-blue-950 md:text-6xl">
+          <h1 className="max-w-2xl text-4xl font-black leading-tight tracking-tight text-blue-950 md:text-5xl">
             Sistema RH Wisdom
           </h1>
 
-          <p className="mt-5 max-w-2xl text-lg font-semibold leading-8 text-slate-600">
-            Acesso protegido para gestão interna de empresas, estagiários,
-            contratos, documentos, financeiro e auditoria.
+          <p className="mt-5 max-w-2xl text-base font-semibold leading-relaxed text-slate-600 md:text-lg">
+            Gestão interna de empresas, estagiários, contratos, documentos,
+            financeiro e auditoria.
           </p>
+        </section>
 
-          <div className="mt-8 rounded-3xl border border-blue-100 bg-white p-5 shadow-sm">
-            <p className="font-black text-blue-950">Sistema interno</p>
-            <p className="mt-2 text-sm font-semibold leading-7 text-slate-500">
-              Nesta fase, o acesso público, o portal da empresa, o portal do
-              estagiário e a landing page estão desativados.
-            </p>
-          </div>
+        <div className="flex justify-center lg:justify-end">
+          <LoginFormClient
+            errorMessage={errorMessage}
+            successMessage={successMessage}
+            logoUrl={null}
+            organizationName={organizationName}
+          />
         </div>
-
-        <div className="rounded-[2rem] bg-white p-8 shadow-xl">
-          <div className="mb-7">
-            <p className="text-sm font-black uppercase tracking-[0.18em] text-red-600">
-              Login seguro
-            </p>
-            <h2 className="mt-2 text-3xl font-black text-blue-950">
-              Entrar no sistema
-            </h2>
-            <p className="mt-2 text-sm font-semibold text-slate-500">
-              Use o e-mail e a senha cadastrados pelo RH master.
-            </p>
-          </div>
-
-          {portalDisabled ? (
-            <div className="mb-5 rounded-2xl border border-yellow-100 bg-yellow-50 p-4 text-sm font-black leading-6 text-yellow-800">
-              O portal da empresa e do estagiário está temporariamente
-              desativado. Acesse com um usuário do RH.
-            </div>
-          ) : null}
-
-          <LoginForm />
-        </div>
-      </section>
+      </div>
     </main>
   );
 }

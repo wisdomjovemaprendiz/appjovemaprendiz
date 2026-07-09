@@ -205,10 +205,13 @@ export async function getFinanceiroData(): Promise<{
   const carnesRows = carnesRaw ?? [];
   const chargeRows = chargesRaw ?? [];
 
+  const visibleCarnesRows = carnesRows.filter((item) => !isRemovedFromList(item));
+  const visibleChargeRows = chargeRows.filter((item) => !isRemovedFromList(item));
+
   const companyIds = Array.from(
     new Set([
-      ...carnesRows.map((item) => item.company_id).filter(Boolean),
-      ...chargeRows.map((item) => item.company_id).filter(Boolean),
+      ...visibleCarnesRows.map((item) => item.company_id).filter(Boolean),
+      ...visibleChargeRows.map((item) => item.company_id).filter(Boolean),
     ])
   ) as string[];
 
@@ -233,7 +236,7 @@ export async function getFinanceiroData(): Promise<{
 
   const documentIds = Array.from(
     new Set(
-      chargeRows
+      visibleChargeRows
         .map((item) => item.comprovante_document_id)
         .filter(Boolean)
     )
@@ -255,7 +258,7 @@ export async function getFinanceiroData(): Promise<{
     }
   }
 
-  const carnes = carnesRows.map((item) => {
+  const carnes = visibleCarnesRows.map((item) => {
     const company = item.company_id ? companyMap.get(item.company_id) : null;
 
     return {
@@ -265,7 +268,7 @@ export async function getFinanceiroData(): Promise<{
     };
   }) as PaymentBookletItem[];
 
-  const charges = chargeRows.map((item) => {
+  const charges = visibleChargeRows.map((item) => {
     const company = item.company_id ? companyMap.get(item.company_id) : null;
     const document = item.comprovante_document_id
       ? documentMap.get(item.comprovante_document_id)
@@ -312,7 +315,7 @@ export async function getFinanceiroData(): Promise<{
 
       return acc;
     },
-    { ...emptyStats, quantidadeCarnes: carnes.filter((item) => item.status !== "cancelado").length }
+    { ...emptyStats, quantidadeCarnes: carnes.length }
   );
 
   return {
