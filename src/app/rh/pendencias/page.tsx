@@ -1,3 +1,5 @@
+export const revalidate = 0;
+export const dynamic = "force-dynamic";
 import { PageHeader } from "@/components/layout/RhShell";
 import { PendenciasWorkspace } from "@/features/pendencias/PendenciasWorkspace";
 import { getPendencias } from "@/data/rh/pendencias.data";

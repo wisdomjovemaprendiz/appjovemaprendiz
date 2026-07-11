@@ -1,3 +1,4 @@
+export const revalidate = 0;
 import { getCarneHorizontalPdfData } from "@/data/rh/carne-horizontal-pdf.data";
 import { CarneHorizontalPrintClient } from "@/features/financeiro/CarneHorizontalPrintClient";
 import Link from "next/link";

@@ -1,3 +1,5 @@
+export const revalidate = 0;
+export const dynamic = "force-dynamic";
 import { PageHeader } from "@/components/layout/RhShell";
 import { UsuariosWorkspace } from "@/features/usuarios/UsuariosWorkspace";
 import { getUsuariosSistema } from "@/data/rh/usuarios.data";

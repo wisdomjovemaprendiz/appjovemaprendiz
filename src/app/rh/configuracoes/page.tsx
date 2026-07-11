@@ -1,3 +1,5 @@
+export const revalidate = 0;
+export const dynamic = "force-dynamic";
 import { PageHeader } from "@/components/layout/RhShell";
 import { getConfiguracoesData } from "@/data/rh/configuracoes.data";
 import { ConfiguracoesWorkspace } from "@/features/configuracoes/ConfiguracoesWorkspace";

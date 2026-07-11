@@ -1,3 +1,5 @@
+export const revalidate = 0;
+export const dynamic = "force-dynamic";
 import { PageHeader } from "@/components/layout/RhShell";
 import { FinanceiroWorkspace } from "@/features/financeiro/FinanceiroWorkspace";
 import { getFinanceiroData, getFinanceiroOptions } from "@/data/rh/financeiro.data";

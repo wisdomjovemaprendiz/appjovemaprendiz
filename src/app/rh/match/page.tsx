@@ -1,3 +1,5 @@
+export const revalidate = 0;
+export const dynamic = "force-dynamic";
 import { PageHeader } from "@/components/layout/RhShell";
 import { MatchWorkspace } from "@/features/match/MatchWorkspace";
 import { getMatches } from "@/data/rh/match.data";

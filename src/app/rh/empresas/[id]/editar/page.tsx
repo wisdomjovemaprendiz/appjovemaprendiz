@@ -1,3 +1,4 @@
+export const revalidate = 0;
 import { PageHeader } from "@/components/layout/RhShell";
 import { getSupabaseAdminClient } from "@/lib/supabase/server";
 import { EmpresaForm } from "@/features/empresas/EmpresaForm";

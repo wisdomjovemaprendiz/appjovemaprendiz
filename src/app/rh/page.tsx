@@ -1,3 +1,5 @@
+export const revalidate = 0;
+export const dynamic = "force-dynamic";
 import { PageHeader } from "@/components/layout/RhShell";
 import { DashboardWorkspace } from "@/features/dashboard/DashboardWorkspace";
 import { getDashboardData } from "@/data/rh/dashboard.data";

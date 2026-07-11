@@ -1,3 +1,5 @@
+export const revalidate = 0;
+export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { PageHeader } from "@/components/layout/RhShell";
 import { EstagiarioForm } from "@/features/estagiarios/EstagiarioForm";

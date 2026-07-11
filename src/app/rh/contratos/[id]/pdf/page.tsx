@@ -1,3 +1,4 @@
+export const revalidate = 0;
 import { getContratoPadraoData } from "@/data/rh/contrato-padrao.data";
 import { ContratoPadraoPrintClient } from "@/features/contratos/ContratoPadraoPrintClient";
 import Link from "next/link";

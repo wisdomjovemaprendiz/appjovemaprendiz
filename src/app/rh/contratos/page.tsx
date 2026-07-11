@@ -1,3 +1,5 @@
+export const revalidate = 0;
+export const dynamic = "force-dynamic";
 import { PageHeader } from "@/components/layout/RhShell";
 import { ContratosWorkspace } from "@/features/contratos/ContratosWorkspace";
 import { getContratoFormOptions, getContratos } from "@/data/rh/contratos.data";

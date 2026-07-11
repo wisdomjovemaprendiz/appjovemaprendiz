@@ -1,3 +1,4 @@
+export const revalidate = 0;
 import { PageHeader } from "@/components/layout/RhShell";
 import { getRelatoriosData } from "@/data/rh/relatorios.data";
 import { RelatoriosWorkspace } from "@/features/relatorios/RelatoriosWorkspace";

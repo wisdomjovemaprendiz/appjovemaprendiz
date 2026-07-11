@@ -1,3 +1,5 @@
+export const revalidate = 0;
+export const dynamic = "force-dynamic";
 import { PageHeader } from "@/components/layout/RhShell";
 import { AuditoriaWorkspace } from "@/features/auditoria/AuditoriaWorkspace";
 import { getAuditoria } from "@/data/rh/auditoria.data";
