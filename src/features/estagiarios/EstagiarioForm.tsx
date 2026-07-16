@@ -52,6 +52,10 @@ export function EstagiarioForm({ estagiarioId, initialData }: EstagiarioFormProp
       serie_ano: initialData?.serie_ano ?? "",
       turno: initialData?.turno ?? "",
       escola: initialData?.escola ?? "",
+      escola_endereco: initialData?.escola_endereco ?? "",
+      escola_bairro: initialData?.escola_bairro ?? "",
+      escola_cnpj: initialData?.escola_cnpj ?? "",
+      escola_inscricao_estadual: initialData?.escola_inscricao_estadual ?? "",
       endereco: initialData?.endereco ?? "",
       bairro: initialData?.bairro ?? "",
       cidade: initialData?.cidade ?? "Salvador",
@@ -245,6 +249,34 @@ export function EstagiarioForm({ estagiarioId, initialData }: EstagiarioFormProp
 
             <FormField label="Escola" error={errors.escola?.message}>
               <TextInput {...register("escola")} placeholder="Nome da escola/instituição" />
+            </FormField>
+
+            <FormField label="Endereço da escola">
+              <TextInput
+                {...register("escola_endereco")}
+                placeholder="Rua, número e complemento da escola"
+              />
+            </FormField>
+
+            <FormField label="Bairro da escola">
+              <TextInput
+                {...register("escola_bairro")}
+                placeholder="Bairro da escola"
+              />
+            </FormField>
+
+            <FormField label="CNPJ/MF da escola">
+              <TextInput
+                {...register("escola_cnpj")}
+                placeholder="00.000.000/0000-00"
+              />
+            </FormField>
+
+            <FormField label="Inscrição estadual da escola">
+              <TextInput
+                {...register("escola_inscricao_estadual")}
+                placeholder="Ex.: Isenta"
+              />
             </FormField>
 
             <FormField label="Empresa/loja onde trabalha">

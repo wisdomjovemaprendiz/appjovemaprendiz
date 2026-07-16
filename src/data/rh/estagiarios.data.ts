@@ -10,7 +10,11 @@ export type EstagiarioListItem = {
   serie_ano: string | null;
   turno: string | null;
   escola: string | null;
-  endereco: string | null;
+    escola_endereco: string | null;
+  escola_bairro: string | null;
+  escola_cnpj: string | null;
+  escola_inscricao_estadual: string | null;
+endereco: string | null;
   empresa_atual: string | null;
   funcao: string | null;
   valor_bolsa: number | null;
@@ -41,7 +45,11 @@ function normalizeStudent(row: Record<string, unknown>): EstagiarioListItem {
     serie_ano: (row.serie_ano as string | null) ?? null,
     turno: (row.turno as string | null) ?? null,
     escola: (row.escola as string | null) ?? null,
-    endereco: (row.endereco as string | null) ?? null,
+        escola_endereco: (row.escola_endereco as string | null) ?? null,
+    escola_bairro: (row.escola_bairro as string | null) ?? null,
+    escola_cnpj: (row.escola_cnpj as string | null) ?? null,
+    escola_inscricao_estadual: (row.escola_inscricao_estadual as string | null) ?? null,
+endereco: (row.endereco as string | null) ?? null,
     empresa_atual: (row.empresa_atual as string | null) ?? null,
     funcao: (row.funcao as string | null) ?? null,
     valor_bolsa: row.valor_bolsa === null || row.valor_bolsa === undefined ? null : Number(row.valor_bolsa),

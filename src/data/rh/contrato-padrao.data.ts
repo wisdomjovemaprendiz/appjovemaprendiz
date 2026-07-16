@@ -265,10 +265,16 @@ export async function getContratoPadraoData(id: string): Promise<{
         getValue(institution, ["bairro"]) ||
         getValue(student, ["escola_bairro"]) ||
         "",
-      cnpj: getValue(institution, ["cnpj"], ""),
-      inscricao_estadual: getValue(institution, ["inscricao_estadual"], "Isenta"),
-      representante: getValue(institution, ["representante_legal", "representante_nome"], ""),
-      cargo: getValue(institution, ["representante_cargo", "cargo"], ""),
+      cnpj:
+        getValue(institution, ["cnpj"]) ||
+        getValue(student, ["escola_cnpj"]) ||
+        "",
+      inscricao_estadual:
+        getValue(institution, ["inscricao_estadual"]) ||
+        getValue(student, ["escola_inscricao_estadual"]) ||
+        "Isenta",
+      representante: "",
+      cargo: "",
     },
 
     empresa: {
