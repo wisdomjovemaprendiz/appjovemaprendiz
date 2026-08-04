@@ -85,9 +85,11 @@ export function LoginFormClient({
           <p className="text-xs font-black uppercase tracking-[0.35em] text-red-600">
             Login seguro
           </p>
+
           <h1 className="mt-2 text-3xl font-black tracking-tight text-blue-950">
             Entrar no sistema
           </h1>
+
           <p className="mt-1 truncate text-sm font-bold text-slate-500">
             {organizationName || "Sistema RH Wisdom"}
           </p>
@@ -112,8 +114,10 @@ export function LoginFormClient({
       <form action={formAction} className="space-y-5">
         <label className="grid gap-2">
           <span className="text-sm font-black text-blue-950">E-mail</span>
+
           <span className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-100">
-            <Mail className="h-5 w-5 text-slate-400" />
+            <Mail className="h-5 w-5 shrink-0 text-slate-400" />
+
             <input
               name="email"
               type="email"
@@ -127,8 +131,10 @@ export function LoginFormClient({
 
         <label className="grid gap-2">
           <span className="text-sm font-black text-blue-950">Senha</span>
+
           <span className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm focus-within:border-blue-500 focus-within:ring-4 focus-within:ring-blue-100">
-            <Lock className="h-5 w-5 text-slate-400" />
+            <Lock className="h-5 w-5 shrink-0 text-slate-400" />
+
             <input
               name="password"
               type={showPassword ? "text" : "password"}
@@ -137,10 +143,11 @@ export function LoginFormClient({
               placeholder="Digite sua senha"
               className="min-w-0 flex-1 border-0 bg-transparent text-sm font-bold text-blue-950 outline-none placeholder:text-slate-400"
             />
+
             <button
               type="button"
               onClick={() => setShowPassword((current) => !current)}
-              className="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100 hover:text-blue-950"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-blue-950"
               aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
               title={showPassword ? "Ocultar senha" : "Mostrar senha"}
             >
