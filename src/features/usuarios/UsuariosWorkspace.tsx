@@ -1,16 +1,18 @@
 "use client";
 
+import { Modal } from "@/components/ui/Modal";
 import {
   alterarStatusUsuarioAction,
   criarUsuarioSistemaAction,
   redefinirSenhaUsuarioAction,
   type UsuarioActionResult,
 } from "@/actions/rh/usuario.actions";
-import { Modal } from "@/components/ui/Modal";
 import type { UsuarioOption, UsuarioSistema } from "@/data/rh/usuarios.data";
 import {
   AlertTriangle,
   CheckCircle2,
+  Eye,
+  EyeOff,
   HelpCircle,
   KeyRound,
   Loader2,
@@ -104,6 +106,7 @@ function NovoUsuarioForm({
   estagiarios: UsuarioOption[];
 }) {
   const router = useRouter();
+  const [showInitialPassword, setShowInitialPassword] = useState(false);
   const [role, setRole] = useState("rh_operador");
   const [state, formAction] = useActionState(criarUsuarioSistemaAction, initialActionState);
 
@@ -158,14 +161,30 @@ function NovoUsuarioForm({
 
         <label className="grid gap-2">
           <span className="text-sm font-black text-blue-950">Senha inicial</span>
-          <input
+          <div className="relative">
+              <input
             name="password"
-            type="password"
+            type={showInitialPassword ? "text" : "password"}
             required
             minLength={6}
             placeholder="Mínimo 6 caracteres"
-            className="h-12 rounded-xl border border-slate-200 px-4 text-sm font-bold outline-none focus:border-blue-500"
+            className="h-12 rounded-xl border border-slate-200 px-4 text-sm font-bold outline-none focus:border-blue-500 pr-12"
           />
+
+              <button
+                type="button"
+                onClick={() => setShowInitialPassword((current) => !current)}
+                className="absolute right-3 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-blue-950"
+                aria-label={showInitialPassword ? "Ocultar senha inicial" : "Mostrar senha inicial"}
+                title={showInitialPassword ? "Ocultar senha inicial" : "Mostrar senha inicial"}
+              >
+                {showInitialPassword ? (
+                  <EyeOff className="h-5 w-5" />
+                ) : (
+                  <Eye className="h-5 w-5" />
+                )}
+              </button>
+            </div>
         </label>
       </div>
 
@@ -181,7 +200,7 @@ function NovoUsuarioForm({
             {empresas.map((empresa) => (
               <option key={empresa.id} value={empresa.id}>
                 {empresa.label}
-                {empresa.detail ? ` — ${empresa.detail}` : ""}
+                {empresa.detail ? ` ââ‚¬" ${empresa.detail}` : ""}
               </option>
             ))}
           </select>
@@ -200,7 +219,7 @@ function NovoUsuarioForm({
             {estagiarios.map((estagiario) => (
               <option key={estagiario.id} value={estagiario.id}>
                 {estagiario.label}
-                {estagiario.detail ? ` — ${estagiario.detail}` : ""}
+                {estagiario.detail ? ` ââ‚¬" ${estagiario.detail}` : ""}
               </option>
             ))}
           </select>
@@ -344,7 +363,7 @@ export function UsuariosWorkspace({
   empresas: UsuarioOption[];
   estagiarios: UsuarioOption[];
 }) {
-  const [search, setSearch] = useState("");
+const [search, setSearch] = useState("");
   const [novoOpen, setNovoOpen] = useState(false);
   const [ajudaOpen, setAjudaOpen] = useState(false);
   const [senhaUsuario, setSenhaUsuario] = useState<Row | null>(null);
@@ -556,7 +575,7 @@ export function UsuariosWorkspace({
         open={novoOpen}
         onClose={() => setNovoOpen(false)}
         title="Novo usuário"
-        description="Crie o acesso com e-mail único, perfil correto e senha inicial."
+        description="Crie o acesso com e-mail Ã�nico, perfil correto e senha inicial."
         size="lg"
       >
         <NovoUsuarioForm empresas={empresas} estagiarios={estagiarios} />
@@ -591,7 +610,7 @@ export function UsuariosWorkspace({
       >
         <div className="space-y-4 text-sm font-bold leading-7 text-slate-600">
           <p>
-            Cada usuário precisa ter um e-mail único. Se o e-mail já estiver em uso,
+            Cada usuário precisa ter um e-mail Ã�nico. Se o e-mail já estiver em uso,
             o sistema agora informa o motivo do bloqueio do cadastro.
           </p>
           <p>

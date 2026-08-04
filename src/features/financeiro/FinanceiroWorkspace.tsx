@@ -915,7 +915,7 @@ export function FinanceiroWorkspace({
 
       {tab === "parcelas" ? (
         <TableShell
-          title={selectedBooklet ? `Parcelas â€” ${selectedBooklet.company_name}` : "Parcelas"}
+          title={selectedBooklet ? `Parcelas — ${selectedBooklet.company_name}` : "Parcelas"}
           description="Folhas do carnê com número de controle individual."
         >
           <ParcelasTable
