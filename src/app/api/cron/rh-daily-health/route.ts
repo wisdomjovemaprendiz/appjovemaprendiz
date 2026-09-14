@@ -47,7 +47,7 @@ async function safeMetric(
       message:
         error instanceof Error
           ? error.message
-          : "Erro desconhecido ao coletar mÃƒÂ©trica.",
+          : "Erro desconhecido ao coletar metrica.",
     });
 
     return null;
@@ -61,7 +61,7 @@ export async function GET(request: Request) {
     return NextResponse.json(
       {
         ok: false,
-        message: "Acesso nÃƒÂ£o autorizado ÃƒÂ  rotina automÃƒÂ¡tica.",
+        message: "Acesso nao autorizado a rotina automatica.",
       },
       { status: 401 },
     );
@@ -73,15 +73,14 @@ export async function GET(request: Request) {
     return NextResponse.json(
       {
         ok: false,
-        message: "Supabase Admin nÃƒÂ£o configurado.",
+        message: "Supabase Admin nao configurado.",
       },
       { status: 500 },
     );
   }
 
-  
   const supabaseAdmin = supabase;
-const errors: HealthError[] = [];
+  const errors: HealthError[] = [];
 
   const metrics: Record<string, MetricValue> = {
     app: "rh-wisdom-estagios",
@@ -90,7 +89,8 @@ const errors: HealthError[] = [];
   };
 
   async function countTable(table: string) {
-    const { count, error } = await supabaseAdmin.from(table)
+    const { count, error } = await supabaseAdmin
+      .from(table)
       .select("id", { count: "exact", head: true });
 
     if (error) throw error;
@@ -99,7 +99,8 @@ const errors: HealthError[] = [];
   }
 
   async function countByStatus(table: string, status: string) {
-    const { count, error } = await supabaseAdmin.from(table)
+    const { count, error } = await supabaseAdmin
+      .from(table)
       .select("id", { count: "exact", head: true })
       .eq("status", status);
 
@@ -109,7 +110,8 @@ const errors: HealthError[] = [];
   }
 
   async function countInsuranceDueSoon() {
-    const { count, error } = await supabaseAdmin.from("students")
+    const { count, error } = await supabaseAdmin
+      .from("students")
       .select("id", { count: "exact", head: true })
       .eq("status", "ativo")
       .not("data_vencimento_seguro", "is", null)
@@ -121,7 +123,8 @@ const errors: HealthError[] = [];
   }
 
   async function countStudentsThirdYear() {
-    const { count, error } = await supabaseAdmin.from("students")
+    const { count, error } = await supabaseAdmin
+      .from("students")
       .select("id", { count: "exact", head: true })
       .eq("status", "ativo")
       .ilike("serie_ano", "%3%");
@@ -167,7 +170,8 @@ const errors: HealthError[] = [];
     errors,
     "configuracao_institucional",
     async () => {
-      const { count, error } = await supabaseAdmin.from("rh_organization_settings")
+      const { count, error } = await supabaseAdmin
+        .from("rh_organization_settings")
         .select("id", { count: "exact", head: true })
         .eq("id", "default");
 
@@ -183,11 +187,13 @@ const errors: HealthError[] = [];
   const ninetyDaysAgo = new Date();
   ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
 
-  await supabaseAdmin.from("system_health_checks")
+  await supabaseAdmin
+    .from("system_health_checks")
     .delete()
     .lt("executed_at", ninetyDaysAgo.toISOString());
 
-  const { data, error } = await supabaseAdmin.from("system_health_checks")
+  const { data, error } = await supabaseAdmin
+    .from("system_health_checks")
     .insert({
       source: "vercel_cron",
       status,
@@ -203,7 +209,7 @@ const errors: HealthError[] = [];
       {
         ok: false,
         message:
-          "A rotina consultou o Supabase, mas nÃƒÂ£o conseguiu registrar o histÃƒÂ³rico.",
+          "A rotina consultou o Supabase, mas nao conseguiu registrar o historico.",
         error: error.message,
         metrics,
         errors,
@@ -214,7 +220,7 @@ const errors: HealthError[] = [];
 
   return NextResponse.json({
     ok: true,
-    message: "Rotina diÃƒÂ¡ria de saÃƒÂºde executada com sucesso.",
+    message: "Rotina diaria de saude executada com sucesso.",
     check: data,
     metrics,
     errors,
